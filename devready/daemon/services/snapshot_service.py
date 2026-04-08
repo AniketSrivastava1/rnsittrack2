@@ -53,7 +53,7 @@ class SnapshotService:
             env_vars=req.env_vars,
             health_score=health_score,
             scan_duration_seconds=req.scan_duration_seconds,
-            violations=[v.model_dump() for v in violations],
+            policy_violations=[v.model_dump() for v in violations],
         )
         return await insert_snapshot(session, snapshot)
 

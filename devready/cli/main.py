@@ -121,7 +121,7 @@ async def scan(
                 return
 
             context.formatter.print_health_score(result.get("health_score", 0))
-            context.formatter.print_violations(result.get("violations", []))
+            context.formatter.print_violations(result.get("policy_violations", []))
             context.formatter.print_tool_table(result.get("tools", []))
             
             if result.get("health_score", 100) < 70:
@@ -147,7 +147,7 @@ async def status(ctx: typer.Context):
             return
 
         context.formatter.print_health_score(snapshot.get("health_score", 0))
-        context.formatter.print_violations(snapshot.get("violations", []))
+        context.formatter.print_violations(snapshot.get("policy_violations", []))
         context.formatter.print_tool_table(snapshot.get("tools", []))
     except DaemonError as e:
         context.formatter.print_error(str(e))

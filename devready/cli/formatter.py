@@ -151,14 +151,16 @@ class RichFormatter:
         drift_score = drift.get("drift_score", 0)
         self.console.print(f"Drift Score: [bold]{drift_score}/100[/bold]\n")
 
-    def print_violations(self, violations: List[Dict[str, Any]]):
+    def print_violations(self, policy_violations: List[Dict[str, Any]]):
         """Display policy violations in a formatted list."""
-        if not violations:
+        if not policy_violations:
             return
 
-        self.console.print(Panel("Policy Violations", style="bold red", expand=False))
+        self.console.print("[bold]+-------------------+[/bold]")
+        self.console.print("[bold]| Policy Violations |[/bold]")
+        self.console.print("[bold]+-------------------+[/bold]")
         
-        for v in violations:
+        for v in policy_violations:
             severity = v.get("severity", "error")
             color = "red" if severity == "error" else "yellow"
             

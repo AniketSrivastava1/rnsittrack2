@@ -37,8 +37,9 @@ class ScanRequest(BaseModel):
 def _to_snapshot_response(snap) -> SnapshotResponse:
     # SQLModel JSON column returns list of dicts for violations
     violation_objects = []
-    if snap.violations:
-        for v in snap.violations:
+    source = getattr(snap, "policy_violations", []) or []
+    if source:
+        for v in source:
             if isinstance(v, dict):
                 violation_objects.append(PolicyViolation(**v))
             else:
@@ -54,7 +55,7 @@ def _to_snapshot_response(snap) -> SnapshotResponse:
         env_vars=snap.env_vars,
         health_score=snap.health_score,
         scan_duration_seconds=snap.scan_duration_seconds,
-        violations=violation_objects,
+        policy_violations=violation_objects,
     )
 
 @router.post("/scan")

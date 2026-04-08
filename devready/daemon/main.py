@@ -11,6 +11,8 @@ from pydantic import ValidationError
 
 from devready.daemon.api import drift, snapshots, system, scan
 from devready.daemon.api.websocket import router as ws_router
+from devready.daemon.api import fixes, analytics
+from devready.daemon.api import fixes, analytics
 from devready.daemon.config import load_config
 from devready.daemon.database import close_engine, init_db
 from devready.daemon.logging_config import setup_logging
@@ -59,6 +61,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.include_router(drift.router)
     app.include_router(scan.router)
     app.include_router(system.router)
+    app.include_router(fixes.router)
+    app.include_router(analytics.router)
     app.include_router(ws_router)
 
     # Request logging middleware

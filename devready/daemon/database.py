@@ -27,11 +27,18 @@ def get_engine(db_path: str = "~/.devready/state.db"):
 
 
 async def init_db(db_path: str = "~/.devready/state.db") -> None:
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist and run migrations."""
+    from devready.daemon.migrations.manager import MigrationManager
+    
     engine = get_engine(db_path)
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    logger.info("Database initialized at %s", db_path)
+    
+    # Run migrations
+    manager = MigrationManager(db_path)
+    await manager.run()
+    
+    logger.info("Database initialized and migrated at %s", db_path)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

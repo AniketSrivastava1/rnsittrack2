@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 _MIGRATIONS = [
     (1, "devready.daemon.migrations.001_initial_schema", "Initial schema"),
+    (2, "devready.daemon.migrations.002_add_policy_violations", "Add policy_violations column"),
 ]
 
 

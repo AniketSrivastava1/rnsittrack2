@@ -32,7 +32,7 @@ def _to_response(snap) -> SnapshotResponse:
         env_vars=snap.env_vars,
         health_score=snap.health_score,
         scan_duration_seconds=snap.scan_duration_seconds,
-        violations=[PolicyViolation(**v) for v in snap.violations] if snap.violations else [],
+        policy_violations=[PolicyViolation(**v) for v in snap.policy_violations] if getattr(snap, "policy_violations", None) else [],
     )
 
 
