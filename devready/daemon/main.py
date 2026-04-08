@@ -9,9 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from devready.daemon.api import drift, snapshots, system, scan
+from devready.daemon.api import analytics, drift, fixes, scan, snapshots, system
 from devready.daemon.api.websocket import router as ws_router
-from devready.daemon.api import fixes, analytics
 from devready.lens.router import router as lens_router
 from devready.daemon.config import load_config
 from devready.daemon.database import close_engine, init_db
@@ -63,8 +62,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.include_router(lens_router)
     app.include_router(snapshots.router)
     app.include_router(drift.router)
-    app.include_router(system.router)
     app.include_router(fixes.router)
+    app.include_router(system.router)
     app.include_router(ws_router)
 
     # Request logging middleware
@@ -90,6 +89,17 @@ def create_app(config_path: str | None = None) -> FastAPI:
         return JSONResponse(
             status_code=500,
             content={"error_code": "INTERNAL_ERROR", "message": "An internal error occurred", "details": {}, "api_version": "v1"},
+        )
+
+    @app.exception_handler(404)
+    async def not_found_handler(request: Request, exc):
+        if hasattr(exc, "detail") and exc.detail:
+            if isinstance(exc.detail, dict):
+                return JSONResponse(status_code=404, content=exc.detail)
+            return JSONResponse(status_code=404, content={"detail": exc.detail})
+        return JSONResponse(
+            status_code=404,
+            content={"error_code": "NOT_FOUND", "message": f"Endpoint {request.url.path} not found", "details": {}, "api_version": "v1"},
         )
 
     @app.on_event("startup")
