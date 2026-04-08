@@ -2,8 +2,8 @@ import pytest
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from fix_applicator import FixApplicator
-from rollback_manager import RollbackManager
+from devready.operator.fix_applicator import FixApplicator
+from devready.operator.rollback_manager import RollbackManager
 
 def test_fix_applicator():
     # Property 4: Fix Verification testing

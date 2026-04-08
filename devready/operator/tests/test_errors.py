@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from errors import DockerNotAvailableError, FixExecutionError, ErrorHandler
+from devready.operator.errors import DockerNotAvailableError, FixExecutionError, ErrorHandler
 
 def test_docker_error():
     err = DockerNotAvailableError()

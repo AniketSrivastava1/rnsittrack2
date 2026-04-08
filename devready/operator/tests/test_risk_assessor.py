@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from risk_assessor import RiskAssessor
+from devready.operator.risk_assessor import RiskAssessor
 
 def test_risk_classification():
     # Property 6: Risk Assessment Accuracy

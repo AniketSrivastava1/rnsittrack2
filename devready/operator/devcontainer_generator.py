@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from typing import Dict, Any
-from config_generator import ConfigGenerator
+from devready.operator.config_generator import ConfigGenerator
 
 logger = logging.getLogger(__name__)
 

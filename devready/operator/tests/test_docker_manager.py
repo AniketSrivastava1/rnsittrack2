@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from docker_manager import DockerManager
+from devready.operator.docker_manager import DockerManager
 from hypothesis import given, strategies as st
 
 def test_docker_availability_detection():

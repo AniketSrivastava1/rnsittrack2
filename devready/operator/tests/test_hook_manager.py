@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from hook_manager import HookManager
+from devready.operator.hook_manager import HookManager
 
 def test_hook_preservation(tmp_path):
     git_dir = tmp_path / ".git" / "hooks"

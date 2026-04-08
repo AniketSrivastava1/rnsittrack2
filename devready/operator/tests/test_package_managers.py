@@ -2,9 +2,9 @@ import pytest
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from package_managers.adapter import registry
+from devready.operator.package_managers.adapter import registry
 # Import to register
-from package_managers import nodejs, python, other
+from devready.operator.package_managers import nodejs, python, other
 
 def test_package_manager_detection(tmp_path):
     pnpm_lock = tmp_path / "pnpm-lock.yaml"
