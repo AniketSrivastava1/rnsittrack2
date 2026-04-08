@@ -89,6 +89,7 @@ class EnvironmentSnapshot(SQLModel, table=True):
     env_vars: Dict[str, str] = SQLField(default_factory=dict, sa_column=Column(JSON))
     health_score: int = SQLField(ge=0, le=100)
     scan_duration_seconds: float
+    policy_violations: List[Dict[str, Any]] = SQLField(default_factory=list, sa_column=Column(JSON))
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +104,7 @@ class SnapshotCreateRequest(BaseModel):
     env_vars: Dict[str, str] = Field(default_factory=dict)
     scan_duration_seconds: float = 0.0
     team_policy: Optional[TeamPolicy] = None
+    policy_violations: List[PolicyViolation] = Field(default_factory=list)
 
 
 class SnapshotResponse(BaseModel):
@@ -115,6 +117,7 @@ class SnapshotResponse(BaseModel):
     env_vars: Dict[str, str]
     health_score: int
     scan_duration_seconds: float
+    policy_violations: List[PolicyViolation] = Field(default_factory=list)
     api_version: str = "v1"
 
 
@@ -146,3 +149,57 @@ class ErrorResponse(BaseModel):
     error_code: str
     message: str
     details: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Fix recommendation models
+# ---------------------------------------------------------------------------
+
+class FixRecommendation(BaseModel):
+    fix_id: str
+    issue_description: str
+    command: Optional[str] = None
+    manual_steps: Optional[str] = None
+    confidence: Literal["high", "medium", "low"] = "medium"
+    estimated_minutes: int = 15
+    affects_global: bool = False
+    violation: Optional[PolicyViolation] = None
+
+
+class FixResult(BaseModel):
+    fix_id: str
+    success: bool
+    message: str
+
+
+class FixApplyRequest(BaseModel):
+    fix_ids: List[str]
+    dry_run: bool = False
+
+
+class FixApplyResponse(BaseModel):
+    results: List[FixResult]
+
+
+# ---------------------------------------------------------------------------
+# Analytics models
+# ---------------------------------------------------------------------------
+
+class SnapshotHistoryEntry(BaseModel):
+    id: Optional[str]
+    timestamp: datetime
+    health_score: int
+    scan_duration_seconds: float
+    tools: List[Dict[str, Any]] = Field(default_factory=list)
+    policy_violations_count: int = 0
+
+
+class ViolationSummaryEntry(BaseModel):
+    violation_type: str
+    tool_or_var_name: str
+    count: int
+    last_seen: Optional[datetime] = None
+
+
+class ViolationSummaryResponse(BaseModel):
+    violations: List[ViolationSummaryEntry] = Field(default_factory=list)
