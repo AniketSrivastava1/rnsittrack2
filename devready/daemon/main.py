@@ -9,8 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from devready.daemon.api import drift, fixes, snapshots, system
+from devready.daemon.api import analytics, drift, fixes, scan, snapshots, system
 from devready.daemon.api.websocket import router as ws_router
+from devready.lens.router import router as lens_router
 from devready.daemon.config import load_config
 from devready.daemon.database import close_engine, init_db
 from devready.daemon.logging_config import setup_logging
@@ -54,7 +55,11 @@ def create_app(config_path: str | None = None) -> FastAPI:
     # Inject metrics collector into system module
     system._metrics_collector = _metrics
 
-    # Routers
+    # Routers — analytics/lens must be registered before snapshots to avoid
+    # /snapshots/history being shadowed by /snapshots/{snapshot_id}
+    app.include_router(scan.router)
+    app.include_router(analytics.router)
+    app.include_router(lens_router)
     app.include_router(snapshots.router)
     app.include_router(drift.router)
     app.include_router(fixes.router)
