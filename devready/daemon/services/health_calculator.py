@@ -1,9 +1,9 @@
 """Health score calculator for environment snapshots."""
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
-from devready.daemon.models import EnvironmentSnapshot, TeamPolicy, ToolVersion
+from devready.daemon.models import EnvironmentSnapshot, TeamPolicy
 
 
 def _version_satisfies(actual: str, min_version: str) -> bool:

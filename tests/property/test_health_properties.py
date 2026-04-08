@@ -75,7 +75,6 @@ def test_missing_required_tool_deducts_points():
     Validates: Requirements 6.2
     """
     policy = TeamPolicy(required_tools=[ToolRequirement(name="node")])
-    snap_with = _make_snap()
     snap_without = _make_snap()
 
     score_without = calc.calculate_score(snap_without, policy)

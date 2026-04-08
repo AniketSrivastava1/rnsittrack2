@@ -1,7 +1,6 @@
 """Integration tests for full scan workflow and multi-client scenarios."""
 import pytest
 
-from devready.daemon.models import TeamPolicy, ToolRequirement, ToolVersion
 
 _BASE_PAYLOAD = {
     "project_path": "/integration/test",

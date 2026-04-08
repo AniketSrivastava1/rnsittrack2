@@ -1,6 +1,6 @@
 """Unit tests for WebSocket manager."""
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from devready.daemon.websocket.manager import WebSocketManager
 

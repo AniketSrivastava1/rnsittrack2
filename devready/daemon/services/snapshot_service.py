@@ -14,7 +14,7 @@ from devready.daemon.db_operations import (
     insert_snapshot,
     list_snapshots,
 )
-from devready.daemon.models import EnvironmentSnapshot, SnapshotCreateRequest, TeamPolicy
+from devready.daemon.models import EnvironmentSnapshot, SnapshotCreateRequest
 from devready.daemon.services.health_calculator import HealthScoreCalculator
 
 _context_detector = ContextDetector()

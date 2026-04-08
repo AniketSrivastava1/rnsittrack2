@@ -8,8 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from devready.daemon.database import get_session
 from devready.daemon.models import (
-    DriftCompareRequest,
-    PolicyCheckRequest,
     SnapshotCreateRequest,
     SnapshotResponse,
     ToolVersion,

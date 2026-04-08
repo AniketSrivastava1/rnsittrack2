@@ -41,7 +41,7 @@ async def test_list_snapshots_filters_by_project(db_session):
 
 @pytest.mark.asyncio
 async def test_get_latest_snapshot(db_session):
-    from datetime import datetime, timedelta
+    from datetime import datetime
     older = make_snapshot(project_path="/proj")
     older.timestamp = datetime(2020, 1, 1)
     newer = make_snapshot(project_path="/proj")

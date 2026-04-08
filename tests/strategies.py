@@ -4,7 +4,6 @@ from hypothesis.strategies import composite
 
 from devready.daemon.models import (
     DriftReport,
-    EnvVarRequirement,
     TeamPolicy,
     ToolRequirement,
     ToolVersion,

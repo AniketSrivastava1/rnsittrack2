@@ -2,9 +2,8 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 
-from devready.daemon.config import AppConfig, load_config
+from devready.daemon.config import load_config
 
 
 def test_load_creates_default_config():

@@ -36,8 +36,6 @@ def test_added_tools_detected(tools_a, extra):
     Feature: architect-core-api-data-state, Property 17: Drift Detection Identifies Added Tools
     Validates: Requirements 5.3
     """
-    # Ensure extra tools have unique names not in tools_a
-    a_names = {t.name for t in tools_a}
     unique_extra = [ToolVersion(name=f"extra_{i}", version="1.0.0", path="/bin/extra") for i in range(len(extra))]
     snap_a = _make_snap(tools_a)
     snap_b = _make_snap(tools_a + unique_extra)

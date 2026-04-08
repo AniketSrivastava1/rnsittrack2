@@ -3,10 +3,7 @@ Property tests for API endpoints.
 Feature: architect-core-api-data-state
 """
 import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
-from tests.strategies import tool_version_strategy
 
 
 _SNAPSHOT_PAYLOAD = {
