@@ -119,6 +119,7 @@ class ScanOrchestrator:
             "tech_stack": stack_info,
             "tools": tool_info.get("tools", {}),
             "dependencies": dep_res.get("dependencies", []),
+            "dependency_graph": dep_res.get("graph", {"nodes": [], "links": []}),
             "env_vars": self.env_collector.get_filtered_env(env_info, root),
             "ai_configs": ai_info,
             "system_info": sys_info.get("os_info", {}) if sys_info else {},

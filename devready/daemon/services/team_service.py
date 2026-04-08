@@ -1,0 +1,99 @@
+import asyncio
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from ..models import EnvironmentSnapshot, TeamPolicy, ToolVersion, DriftReport, VersionChange
+from .drift_service import DriftDetectionService, _severity
+
+logger = logging.getLogger(__name__)
+
+class TeamSyncService:
+    """Manages environment metadata synchronization with the Team Hub."""
+    
+    def __init__(self, db_session: Any = None):
+        self.db_session = db_session
+        self.hub_url = "https://api.devready.ai/v1/team" # Mock Hub URL
+        self._last_sync_time: Optional[datetime] = None
+    
+    async def sync_snapshot(self, snapshot: EnvironmentSnapshot) -> bool:
+        """Pushes a local environment snapshot to the Team Hub."""
+        logger.info(f"Syncing snapshot {snapshot.id} for project {snapshot.project_name} to Team Hub...")
+        
+        # Simulating a Hub POST request
+        # In a real implementation, we would use httpx.AsyncClient()
+        await asyncio.sleep(0.5) 
+        
+        self._last_sync_time = datetime.utcnow()
+        logger.info(f"Successfully synced {snapshot.id} with Team Hub.")
+        return True
+
+    async def get_team_health_summary(self) -> Dict[str, Any]:
+        """Pulls the aggregate health status for the entire team from the Hub."""
+        logger.debug("Fetching team health summary from Hub...")
+        
+        # High-fidelity mock data representing colleagues from the team
+        await asyncio.sleep(0.3)
+        return {
+            "team_name": "Core Platform Engineering",
+            "aggregate_score": 88,
+            "member_count": 4,
+            "members": [
+                {"name": "Gowri", "score": 92, "status": "online", "last_scan": "2m ago"},
+                {"name": "Aniket", "score": 85, "status": "offline", "last_scan": "1h ago"},
+                {"name": "Shuvam", "score": 70, "status": "warning", "last_scan": "15m ago"},
+                {"name": "Arun", "score": 100, "status": "online", "last_scan": "1m ago"},
+            ]
+        }
+
+    async def get_team_policy(self) -> Optional[TeamPolicy]:
+        """Fetches the latest team-wide environment policy."""
+        # Mock policy data
+        return TeamPolicy(
+            required_tools=[
+                {"name": "python", "min_version": "3.11"},
+                {"name": "docker", "min_version": "24.0"}
+            ],
+            forbidden_tools=["telnet", "ftp"],
+            version_constraints={"node": ">=18.0.0 <21.0.0"}
+        )
+
+    async def get_drift_outliers(self) -> List[Dict[str, Any]]:
+        """Identifies significant drift between the current user and the team average."""
+        # E.g., 'You are on Node 18, but 80% of the team is on Node 20'
+        return [
+            {
+                "tool": "node",
+                "user_version": "18.1.0",
+                "team_majority": "20.11.0",
+                "adoption_rate": 0.85,
+                "recommendation": "Upgrade to Node 20 to match team standards."
+            }
+        ]
+
+    async def compare_with_member(self, user_snapshot: EnvironmentSnapshot, member_id: str) -> DriftReport:
+        """Compares the current user's snapshot with a specific teammate's metadata."""
+        # Mock teammate metadata lookup
+        teammate_data = {
+            "Alice": {"tools": [{"name": "python", "version": "3.12.0", "path": "/usr/bin/python", "status": "ok"}]},
+            "Aniket": {"tools": [{"name": "node", "version": "20.0.0", "path": "/usr/bin/node", "status": "ok"}]},
+            "Shuvam": {"tools": [{"name": "python", "version": "3.10.0", "path": "/usr/bin/python", "status": "ok"}]},
+            "Arun": {"tools": [{"name": "python", "version": "3.11.0", "path": "/usr/bin/python", "status": "ok"}]}
+        }
+        
+        member_metadata = teammate_data.get(member_id, {"tools": []})
+        
+        # We reuse the logic from DriftDetectionService
+        drift_service = DriftDetectionService()
+        
+        # Create a mock snapshot for the teammate to use the comparison logic
+        member_snapshot = EnvironmentSnapshot(
+            id=f"member-{member_id}",
+            project_path=user_snapshot.project_path,
+            project_name=user_snapshot.project_name,
+            tools=member_metadata["tools"],
+            health_score=90,
+            scan_duration_seconds=0.1
+        )
+        
+        return drift_service.compare_snapshots(user_snapshot, member_snapshot)
