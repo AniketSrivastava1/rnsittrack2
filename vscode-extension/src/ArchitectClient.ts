@@ -31,6 +31,18 @@ export class ArchitectClient {
         });
     }
 
+    public async getTeamVisualizationHtml(): Promise<string> {
+        const url = new URL(`/api/v1/visualize/team`, this.baseUrl);
+        return new Promise((resolve, reject) => {
+            const req = http.get(url, (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve(body));
+            });
+            req.on('error', (err) => reject(err));
+        });
+    }
+
     public async getFixRecommendations(snapshotId: string, _policy: any): Promise<FixRecommendation[]> {
         return this.get(`/api/v1/fixes?snapshot_id=${encodeURIComponent(snapshotId)}`);
     }

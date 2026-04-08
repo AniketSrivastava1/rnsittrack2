@@ -39,11 +39,95 @@ class TeamSyncService:
             "aggregate_score": 88,
             "member_count": 4,
             "members": [
-                {"name": "Gowri", "score": 92, "status": "online", "last_scan": "2m ago"},
-                {"name": "Aniket", "score": 85, "status": "offline", "last_scan": "1h ago"},
-                {"name": "Shuvam", "score": 70, "status": "warning", "last_scan": "15m ago"},
-                {"name": "Arun", "score": 100, "status": "online", "last_scan": "1m ago"},
+                {
+                    "id": "gowri",
+                    "name": "Gowri",
+                    "role": "Lead Architect",
+                    "score": 92,
+                    "status": "online",
+                    "last_scan": "2m ago",
+                    "avatar": "GS"
+                },
+                {
+                    "id": "aniket",
+                    "name": "Aniket",
+                    "role": "Fullstack Engineer",
+                    "score": 85,
+                    "status": "offline",
+                    "last_scan": "1h ago",
+                    "avatar": "AS"
+                },
+                {
+                    "id": "shuvam",
+                    "name": "Shuvam",
+                    "role": "QA Lead",
+                    "score": 70,
+                    "status": "warning",
+                    "last_scan": "15m ago",
+                    "avatar": "SM"
+                },
+                {
+                    "id": "arun",
+                    "name": "Arun",
+                    "role": "DevOps Ninja",
+                    "score": 100,
+                    "status": "online",
+                    "last_scan": "1m ago",
+                    "avatar": "AK"
+                },
             ]
+        }
+
+    async def get_member_details(self, member_id: str) -> Dict[str, Any]:
+        """Returns detailed history and setup for a specific teammate."""
+        # High-fidelity mock history
+        history = [
+            {"date": "2024-03-20 14:00", "score": 92, "event": "Environment updated"},
+            {"date": "2024-03-19 09:30", "score": 88, "event": "Dependency drift detected"},
+            {"date": "2024-03-18 16:45", "score": 95, "event": "Clean scan"}
+        ]
+        
+        setups = {
+            "gowri": {
+                "bio": "Building the future of agentic coding.",
+                "tools": [
+                    {"name": "python", "version": "3.12.2", "status": "ok"},
+                    {"name": "node", "version": "20.11.0", "status": "ok"},
+                    {"name": "docker", "version": "25.0.3", "status": "ok"}
+                ]
+            },
+            "aniket": {
+                "bio": "Frontend perfectionist and API enthusiast.",
+                "tools": [
+                    {"name": "python", "version": "3.11.5", "status": "warning"},
+                    {"name": "node", "version": "18.17.0", "status": "ok"},
+                    {"name": "npm", "version": "9.6.7", "status": "ok"}
+                ]
+            },
+            "shuvam": {
+                "bio": "Ensuring quality through automated chaos.",
+                "tools": [
+                    {"name": "python", "version": "3.10.12", "status": "error"},
+                    {"name": "pytest", "version": "8.0.0", "status": "ok"},
+                    {"name": "selenium", "version": "4.15.0", "status": "ok"}
+                ]
+            },
+            "arun": {
+                "bio": "Infrastructure as Code is the only way.",
+                "tools": [
+                    {"name": "go", "version": "1.22.1", "status": "ok"},
+                    {"name": "terraform", "version": "1.7.4", "status": "ok"},
+                    {"name": "kubernetes", "version": "1.29.2", "status": "ok"}
+                ]
+            }
+        }
+        
+        details = setups.get(member_id.lower(), {"bio": "Team member", "tools": []})
+        return {
+            "id": member_id,
+            "bio": details["bio"],
+            "tools": details["tools"],
+            "history": history
         }
 
     async def get_team_policy(self) -> Optional[TeamPolicy]:

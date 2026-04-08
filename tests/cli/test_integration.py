@@ -81,3 +81,29 @@ def test_fix_command(runner):
         assert result.exit_code == 0
         assert "Fixes applied successfully!" in result.stdout
         mock_client.apply_fixes.assert_called_once()
+
+def test_team_status_command(runner):
+    with patch("devready.cli.main.DaemonClient", autospec=True) as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client.get_team_summary = AsyncMock(return_value={
+            "team_name": "Test Team",
+            "aggregate_score": 88,
+            "members": [
+                {"name": "Alice", "score": 95, "status": "online", "last_scan": "1m ago"}
+            ]
+        })
+        
+        result = runner.invoke(app, ["team", "status"])
+        assert result.exit_code == 0
+        assert "Team: Test Team (Avg: 88%)" in result.stdout
+        assert "Alice" in result.stdout
+
+def test_team_sync_command(runner):
+    with patch("devready.cli.main.DaemonClient", autospec=True) as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client.sync_team_data = AsyncMock(return_value={"status": "success"})
+        
+        # Use --quiet on the root command to bypass confirmation
+        result = runner.invoke(app, ["-q", "team", "sync"])
+        assert result.exit_code == 0
+        assert "Successfully synced with team hub" in result.stdout

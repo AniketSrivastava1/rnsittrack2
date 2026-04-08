@@ -45,7 +45,7 @@ async def test_daemon_timeout(httpx_mock):
 async def test_daemon_response_error(httpx_mock):
     httpx_mock.add_response(
         method="GET",
-        url="http://localhost:8443/api/v1/snapshots/latest?project_path=test",
+        url="http://localhost:8443/api/v1/snapshots?project_path=test&limit=1",
         status_code=500,
         text="Internal Server Error"
     )
@@ -60,11 +60,11 @@ async def test_daemon_response_error(httpx_mock):
 async def test_get_latest_snapshot_404(httpx_mock):
     httpx_mock.add_response(
         method="GET",
-        url="http://localhost:8443/api/v1/snapshots/latest?project_path=test",
+        url="http://localhost:8443/api/v1/snapshots?project_path=test&limit=1",
         status_code=404
     )
     
     client = DaemonClient()
-    result = await client.get_latest_snapshot("test")
-    assert result is None
+    with pytest.raises(DaemonResponseError):
+        await client.get_latest_snapshot("test")
     await client.close()

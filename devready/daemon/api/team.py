@@ -27,6 +27,12 @@ async def get_team_summary():
     service = TeamSyncService()
     return await service.get_team_health_summary()
 
+@router.get("/members/{member_id}")
+async def get_team_member_details(member_id: str):
+    """Returns detailed history and setup for a specific teammate."""
+    service = TeamSyncService()
+    return await service.get_member_details(member_id)
+
 @router.get("/drift", response_model=List[Dict[str, Any]])
 async def get_team_drift():
     """Returns common drift items across the team."""
