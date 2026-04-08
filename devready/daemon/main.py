@@ -93,12 +93,10 @@ def create_app(config_path: str | None = None) -> FastAPI:
 
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc):
-        # If the exception has a 'detail' attribute, it's a raised HTTPException, so return that detail
         if hasattr(exc, "detail") and exc.detail:
             if isinstance(exc.detail, dict):
                 return JSONResponse(status_code=404, content=exc.detail)
             return JSONResponse(status_code=404, content={"detail": exc.detail})
-            
         return JSONResponse(
             status_code=404,
             content={"error_code": "NOT_FOUND", "message": f"Endpoint {request.url.path} not found", "details": {}, "api_version": "v1"},

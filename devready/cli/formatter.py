@@ -155,17 +155,20 @@ class RichFormatter:
         self.console.print(Panel("Fix Recommendations", style="bold green", expand=False))
         
         for i, fix in enumerate(fixes, 1):
-            title = f"{i}. {fix.get('title', 'Unknown Fix')}"
+            title = f"{i}. {fix.get('issue_description', fix.get('title', 'Unknown Fix'))}"
             self.console.print(f"\n[bold]{title}[/bold]")
-            self.console.print(f"Description: {fix.get('description', '-')}")
-            
-            if fix.get("auto_fix"):
+            self.console.print(f"Description: {fix.get('issue_description', '-')}")
+
+            if fix.get("command"):
+                self.console.print(f"Command: [bold cyan]{fix['command']}[/bold cyan]")
+            elif fix.get("manual_steps"):
+                self.console.print(f"Steps: {fix['manual_steps']}")
+            elif fix.get("auto_fix"):
                 self.console.print(f"Command: [bold cyan]{fix['auto_fix']}[/bold cyan]")
             else:
-                self.console.print("Steps:")
                 for step in fix.get("steps", []):
                     self.console.print(f"  - {step}")
-            
+
             self.console.print(f"Confidence: [dim]{fix.get('confidence', 'high')}[/dim]")
 
     def show_progress(self, description: str) -> Progress:

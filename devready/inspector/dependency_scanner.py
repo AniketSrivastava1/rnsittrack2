@@ -1,63 +1,118 @@
+import json
 import logging
-from typing import Dict, Any, Optional
-from devready.inspector.subprocess_wrapper import SubprocessWrapper, SubprocessError
+import os
+import shutil
+from typing import Any, Dict, List, Optional
+
+from devready.inspector.subprocess_wrapper import SubprocessWrapper
 from devready.inspector.sbom_parser import SBOMParser
 
 logger = logging.getLogger(__name__)
 
+# Dependency files to scan per language when syft is unavailable
+_MANIFEST_PARSERS = {
+    "python": ["requirements.txt", "Pipfile", "pyproject.toml", "setup.cfg"],
+    "node": ["package.json"],
+    "go": ["go.mod"],
+    "rust": ["Cargo.toml"],
+    "ruby": ["Gemfile"],
+    "java": ["pom.xml", "build.gradle"],
+    "php": ["composer.json"],
+}
+
+
 class DependencyScanner:
-    """Scans projects for dependencies using Syft."""
+    """Scans projects for dependencies using Syft, with a file-based fallback."""
 
     def __init__(self, wrapper: Optional[SubprocessWrapper] = None, parser: Optional[SBOMParser] = None):
         self.wrapper = wrapper or SubprocessWrapper()
         self.parser = parser or SBOMParser()
 
     def scan(self, project_path: str) -> Dict[str, Any]:
-        """
-        Runs a Syft scan on the given project path.
-        
-        Returns:
-            A dictionary containing the dependencies or error info.
-        """
-        # Command: syft <path> -o json
-        # We assume 'syft' might not be in the path, so we'll handle failure
-        command = ["syft", project_path, "-o", "json"]
-        
+        if shutil.which("syft"):
+            return self._scan_with_syft(project_path)
+        logger.info("syft not found, using manifest fallback for %s", project_path)
+        return self._scan_manifests(project_path)
+
+    def _scan_with_syft(self, project_path: str) -> Dict[str, Any]:
         try:
-            # Requirements say 4 seconds timeout for SBOM generation
-            result = self.wrapper.execute(command, timeout_seconds=4.0)
-            
+            result = self.wrapper.execute(["syft", project_path, "-o", "json"], timeout_seconds=4.0)
             if result.exit_code == 0:
                 dependencies = self.parser.parse(result.stdout)
-                return {
-                    "success": True,
-                    "dependencies": dependencies,
-                    "count": len(dependencies),
-                    "duration_ms": result.duration_ms
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": f"Syft execution failed: {result.stderr}",
-                    "details": "Ensure Syft is installed and accessible in your PATH. Visit https://github.com/anchore/syft for installation instructions."
-                }
-                
-        except SubprocessError as e:
-            # This happens if exit code != 0, which we already handle for 'syft' specifically
-            return {
-                "success": False,
-                "error": str(e),
-                "details": "Syft failed to execute."
-            }
+                return {"success": True, "dependencies": dependencies, "count": len(dependencies)}
+            return {"success": False, "dependencies": [], "error": result.stderr}
         except Exception as e:
-            if "not found" in str(e).lower() or "FileNotFoundError" in str(type(e)):
-                 return {
-                    "success": False,
-                    "error": "Syft command not found.",
-                    "details": "Syft is required for dependency scanning. Install it from: https://github.com/anchore/syft"
-                }
-            return {
-                "success": False,
-                "error": str(e),
-                "details": "An unexpected error occurred during dependency scanning."
-            }
+            return {"success": False, "dependencies": [], "error": str(e)}
+
+    def _scan_manifests(self, project_path: str) -> Dict[str, Any]:
+        """Parse dependency manifests directly without syft."""
+        dependencies: List[Dict[str, Any]] = []
+
+        for lang, files in _MANIFEST_PARSERS.items():
+            for filename in files:
+                filepath = os.path.join(project_path, filename)
+                if not os.path.exists(filepath):
+                    continue
+                try:
+                    deps = self._parse_manifest(filepath, lang)
+                    dependencies.extend(deps)
+                except Exception as e:
+                    logger.debug("Failed to parse %s: %s", filepath, e)
+                break  # only parse first matching file per lang
+
+        return {"success": True, "dependencies": dependencies, "count": len(dependencies)}
+
+    def _parse_manifest(self, filepath: str, lang: str) -> List[Dict[str, Any]]:
+        filename = os.path.basename(filepath)
+        deps = []
+
+        if filename == "requirements.txt":
+            with open(filepath) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    name, _, version = line.partition("==")
+                    name2, _, version2 = name.partition(">=")
+                    deps.append({"name": name2.strip() or name.strip(),
+                                 "version": version.strip() or version2.strip() or "unknown",
+                                 "type": lang, "location": filepath})
+
+        elif filename == "package.json":
+            with open(filepath) as f:
+                data = json.load(f)
+            for section in ("dependencies", "devDependencies"):
+                for name, ver in data.get(section, {}).items():
+                    deps.append({"name": name, "version": ver.lstrip("^~"),
+                                 "type": lang, "location": filepath})
+
+        elif filename == "go.mod":
+            with open(filepath) as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if len(parts) >= 2 and parts[0] not in ("module", "go", "require", "//"):
+                        deps.append({"name": parts[0], "version": parts[1],
+                                     "type": lang, "location": filepath})
+
+        elif filename == "Cargo.toml":
+            import re
+            with open(filepath) as f:
+                content = f.read()
+            for m in re.finditer(r'^(\S+)\s*=\s*["\{]([^"}\n]+)', content, re.MULTILINE):
+                deps.append({"name": m.group(1), "version": m.group(2).strip(),
+                             "type": lang, "location": filepath})
+
+        elif filename == "pyproject.toml":
+            import re
+            with open(filepath) as f:
+                content = f.read()
+            for m in re.finditer(r'"([a-zA-Z0-9_\-]+)([>=<!][^"]*)?"', content):
+                deps.append({"name": m.group(1), "version": (m.group(2) or "").strip(),
+                             "type": lang, "location": filepath})
+
+        else:
+            # Generic: just record the manifest file itself
+            deps.append({"name": filename, "version": "unknown",
+                         "type": lang, "location": filepath})
+
+        return deps

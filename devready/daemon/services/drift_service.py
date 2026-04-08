@@ -13,6 +13,18 @@ from devready.daemon.models import (
 )
 
 
+def _version_satisfies(actual: str, min_version: str) -> bool:
+    try:
+        a = tuple(int(x) for x in actual.split(".") if x.isdigit())
+        m = tuple(int(x) for x in min_version.split(".") if x.isdigit())
+        length = max(len(a), len(m))
+        a += (0,) * (length - len(a))
+        m += (0,) * (length - len(m))
+        return a >= m
+    except Exception:
+        return actual >= min_version
+
+
 def _severity(old: str, new: str) -> str:
     try:
         o = [int(x) for x in old.split(".")]
@@ -44,7 +56,7 @@ class DriftDetectionService:
                     severity=_severity(a_tools[name]["version"], b_tools[name]["version"]),
                 ))
 
-        drift_score = self.calculate_drift_score(len(added), len(removed), len(changes))
+        drift_score = self._weighted_drift_score(added, removed, changes)
 
         return DriftReport(
             snapshot_a_id=snap_a.id or "",
@@ -55,9 +67,15 @@ class DriftDetectionService:
             drift_score=drift_score,
         )
 
+    def _weighted_drift_score(self, added: list, removed: list, changes: List[VersionChange]) -> int:
+        score = len(removed) * 15 + len(added) * 5
+        for c in changes:
+            score += {"major": 20, "minor": 8, "patch": 3}.get(c.severity, 5)
+        return min(100, score)
+
     def calculate_drift_score(self, added: int, removed: int, changed: int) -> int:
-        total = added + removed + changed
-        return min(100, total * 10)
+        """Kept for backwards compatibility."""
+        return min(100, removed * 15 + changed * 10 + added * 5)
 
     def check_policy_compliance(
         self, snapshot: EnvironmentSnapshot, policy: TeamPolicy
@@ -75,15 +93,33 @@ class DriftDetectionService:
                     severity="error",
                     message=f"Required tool '{req.name}' is not installed",
                 ))
-            elif req.min_version and tool_map[req.name] < req.min_version:
-                violations.append(PolicyViolation(
-                    violation_type="version_mismatch",
-                    tool_or_var_name=req.name,
-                    expected=f">={req.min_version}",
-                    actual=tool_map[req.name],
-                    severity="error",
-                    message=f"Tool '{req.name}' version {tool_map[req.name]} < required {req.min_version}",
-                ))
+            else:
+                actual = tool_map[req.name]
+                too_old = req.min_version and not _version_satisfies(actual, req.min_version)
+                too_new = req.max_version and _version_satisfies(actual, req.max_version) and actual != req.max_version
+                # too_new: actual > max_version
+                if req.max_version:
+                    a = tuple(int(x) for x in actual.split(".") if x.isdigit())
+                    m = tuple(int(x) for x in req.max_version.split(".") if x.isdigit())
+                    too_new = a > m
+                if too_old:
+                    violations.append(PolicyViolation(
+                        violation_type="version_mismatch",
+                        tool_or_var_name=req.name,
+                        expected=f">={req.min_version}",
+                        actual=actual,
+                        severity="error",
+                        message=f"Tool '{req.name}' version {actual} is below required {req.min_version}",
+                    ))
+                elif too_new:
+                    violations.append(PolicyViolation(
+                        violation_type="version_mismatch",
+                        tool_or_var_name=req.name,
+                        expected=f"<={req.max_version}",
+                        actual=actual,
+                        severity="error",
+                        message=f"Tool '{req.name}' version {actual} exceeds maximum allowed {req.max_version}",
+                    ))
 
         for forbidden in policy.forbidden_tools:
             if forbidden in tool_map:

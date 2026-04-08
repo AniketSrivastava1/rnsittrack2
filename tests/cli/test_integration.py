@@ -63,17 +63,19 @@ def test_fix_command(runner):
     with patch("devready.cli.main.DaemonClient", autospec=True) as mock_client_class:
         mock_client = mock_client_class.return_value
         mock_client.get_latest_snapshot = AsyncMock(return_value={
-            "id": "123",
-            "fixes": [{"title": "Test Fix", "description": "Fix description", "auto_fix": "echo fix"}]
+            "snapshot_id": "123",
         })
-        mock_client.apply_fixes = AsyncMock(return_value={"status": "success"})
-        
+        mock_client.get_fix_recommendations = AsyncMock(return_value=[
+            {"fix_id": "fix-1", "issue_description": "Test Fix", "command": "echo fix", "confidence": "high"}
+        ])
+        mock_client.apply_fixes = AsyncMock(return_value={"results": [{"fix_id": "fix-1", "success": True, "message": "done"}]})
+
         # Test dry run
         result = runner.invoke(app, ["fix", "--dry-run"])
         assert result.exit_code == 0
         assert "Test Fix" in result.stdout
         mock_client.apply_fixes.assert_not_called()
-        
+
         # Test apply with auto-approve
         result = runner.invoke(app, ["fix", "-y"])
         assert result.exit_code == 0
