@@ -1,18 +1,86 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
 build/
-.venv/
-venv/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.dashboard-cache/
+.pytest_cache/
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Environments
 .env
+.venv
+env/
+venv/
+ENV/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# project specific
 *.db
 *.db-shm
 *.db-wal
 ~/.devready/
-.mypy_cache/
 .ruff_cache/
-.pytest_cache/
-htmlcov/
-.coverage
-.hypothesis/

@@ -20,6 +20,9 @@ dependencies = [
     "PyYAML>=6.0",
     "psutil>=5.9.0",
     "slowapi>=0.1.9",
+    "osquery>=3.0.0",
+    "sh>=2.0.0",
+    "toml>=0.10.0",
 ]
 
 [project.optional-dependencies]

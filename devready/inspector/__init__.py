@@ -1,0 +1,1 @@
+# DevReady Inspector package
