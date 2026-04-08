@@ -1,0 +1,10 @@
+required_tools:
+  - name: "git"
+    min_version: "2.60.0"
+  - name: "node"
+    min_version: "18.0.0"
+forbidden_tools:
+  - "osquery"
+env_var_requirements:
+  - name: "PRODUCTION_TOKEN"
+    required: true

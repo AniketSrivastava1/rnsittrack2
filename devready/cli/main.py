@@ -3,7 +3,8 @@ import asyncio
 import os
 import sys
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
+from pathlib import Path
 from functools import wraps
 
 from rich.table import Table
@@ -61,20 +62,58 @@ def main(
         no_color=no_color
     )
 
+def _load_team_policy(project_root: str) -> Optional[Dict[str, Any]]:
+    """Look for .devready-team.yaml and load it as a dictionary."""
+    import yaml
+    policy_path = Path(project_root) / ".devready-team.yaml"
+    if policy_path.exists():
+        try:
+            with open(policy_path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+        except Exception:
+            pass
+    return None
+
 @app.command()
 @coro
 async def scan(
     ctx: typer.Context,
     scope: str = typer.Option("full", "--scope", help="Scan scope: full, system, dependencies, configs"),
     project: Optional[str] = typer.Option(None, "--project", help="Project path to scan"),
+    no_git: bool = typer.Option(False, "--no-git", help="Skip git detection"),
+    no_docker: bool = typer.Option(False, "--no-docker", help="Skip docker detection"),
+    no_node: bool = typer.Option(False, "--no-node", help="Skip node/npm detection"),
+    no_java: bool = typer.Option(False, "--no-java", help="Skip java detection"),
+    no_python: bool = typer.Option(False, "--no-python", help="Skip python detection"),
+    no_syft: bool = typer.Option(False, "--no-syft", help="Skip syft detection"),
+    no_vms: bool = typer.Option(False, "--no-vms", help="Skip all version manager detection (nvm, pyenv, etc.)"),
+    no_deps: bool = typer.Option(False, "--no-deps", help="Skip dependency scanning"),
+    no_system: bool = typer.Option(False, "--no-system", help="Skip system scanning"),
 ):
     """Scan your development environment for issues."""
     context = ctx.obj
     
+    ignore_tools = []
+    if no_git: ignore_tools.append("git")
+    if no_docker: ignore_tools.append("docker")
+    if no_node: ignore_tools.append("node")
+    if no_java: ignore_tools.append("java")
+    if no_python: ignore_tools.append("python")
+    if no_syft: ignore_tools.append("syft")
+    if no_vms:
+        ignore_tools.extend(["nvm", "pyenv", "asdf", "mise", "rustup", "sdkman"])
+
     with context.formatter.show_progress(f"Scanning {scope}...") as progress:
         progress.add_task(description=f"Scanning {scope}...", total=None)
         try:
-            result = await context.client.scan(project_path=project or os.getcwd(), scope=scope)
+            result = await context.client.scan(
+                project_path=project or os.getcwd(), 
+                scope=scope,
+                ignore_tools=ignore_tools,
+                ignore_deps=no_deps,
+                ignore_system=no_system,
+                team_policy=_load_team_policy(project or os.getcwd())
+            )
             
             if context.json_output:
                 import json
@@ -82,6 +121,7 @@ async def scan(
                 return
 
             context.formatter.print_health_score(result.get("health_score", 0))
+            context.formatter.print_violations(result.get("policy_violations", []))
             context.formatter.print_tool_table(result.get("tools", []))
             
             if result.get("health_score", 100) < 70:
@@ -107,6 +147,7 @@ async def status(ctx: typer.Context):
             return
 
         context.formatter.print_health_score(snapshot.get("health_score", 0))
+        context.formatter.print_violations(snapshot.get("policy_violations", []))
         context.formatter.print_tool_table(snapshot.get("tools", []))
     except DaemonError as e:
         context.formatter.print_error(str(e))
