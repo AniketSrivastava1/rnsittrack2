@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/api/drift.py
+# hypothesis_version: 6.151.11
+
+[404, '/api/v1/drift', '/compare', '/policy', 'SNAPSHOT_NOT_FOUND', 'details', 'drift', 'error_code', 'message']

@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/api/snapshots.py
+# hypothesis_version: 6.151.11
+
+[200, 201, 204, 404, '/api/v1', '/snapshots', '/snapshots/latest', 'SNAPSHOT_NOT_FOUND', 'details', 'error_code', 'message', 'snapshot_id', 'snapshots']

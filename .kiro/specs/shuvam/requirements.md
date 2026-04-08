@@ -233,3 +233,17 @@ The Architect runs as a lightweight background service on localhost:8443, mainta
 5. THE Daemon SHALL implement rate limiting of 100 requests per minute per client
 6. WHEN rate limits are exceeded, THE Daemon SHALL return HTTP 429
 7. THE Daemon SHALL never log sensitive data such as environment variable values or API tokens
+
+### Requirement 16: Analytics Data Exposure for Metrics Layer
+
+**User Story:** As the Metrics & Visualisation component, I want to query historical snapshot data in bulk, so that I can compute trends, aggregations, and time-saved estimates without re-implementing database access.
+
+#### Acceptance Criteria
+
+1. WHEN a GET request is sent to /api/v1/snapshots/history with query parameters project_path and days (default: 30), THE Daemon SHALL return all snapshots for that project within the specified time window, ordered by timestamp ascending
+2. THE history response SHALL include for each snapshot: id, timestamp, health_score, scan_duration_seconds, tools (name + version only), and a policy_violations_count field
+3. WHEN a GET request is sent to /api/v1/snapshots/history without project_path, THE Daemon SHALL return snapshots across all projects within the time window
+4. THE Daemon SHALL support a limit query parameter (default: 200, max: 1000) on the history endpoint to prevent oversized responses
+5. WHEN a GET request is sent to /api/v1/analytics/violations/summary with an optional project_path and days parameter, THE Daemon SHALL return a list of violation types with their occurrence counts, sorted by count descending
+6. THE violations summary response SHALL include fields: violation_type, tool_or_var_name, count, last_seen timestamp
+7. THE Daemon SHALL complete history and violations summary queries within 1 second for datasets up to 1000 snapshots

@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/middleware/rate_limit.py
+# hypothesis_version: 6.151.11
+
+[100, 429, 'RATE_LIMIT_EXCEEDED', 'Too many requests', 'details', 'error_code', 'message', 'unknown']

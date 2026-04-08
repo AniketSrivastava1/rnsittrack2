@@ -1,0 +1,110 @@
+"""Main FastAPI application for DevReady Daemon."""
+from __future__ import annotations
+
+import logging
+import time
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+
+from devready.daemon.api import drift, snapshots, system
+from devready.daemon.api.websocket import router as ws_router
+from devready.daemon.config import load_config
+from devready.daemon.database import close_engine, init_db
+from devready.daemon.logging_config import setup_logging
+from devready.daemon.middleware.rate_limit import RateLimitMiddleware
+from devready.daemon.middleware.security import SecurityMiddleware
+from devready.daemon.services.metrics_collector import MetricsCollector
+
+logger = logging.getLogger(__name__)
+
+_metrics = MetricsCollector()
+
+
+def create_app(config_path: str | None = None) -> FastAPI:
+    cfg = load_config(config_path)
+
+    setup_logging(
+        cfg.logging.file,
+        level=cfg.logging.level,
+        max_size_mb=cfg.logging.max_size_mb,
+        backup_count=cfg.logging.backup_count,
+    )
+
+    app = FastAPI(
+        title="DevReady Daemon API",
+        version="1.0.0",
+        docs_url="/api/docs",
+        redoc_url="/api/redoc",
+    )
+
+    # CORS - localhost only
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost", "http://127.0.0.1"],
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(RateLimitMiddleware, max_requests=cfg.performance.rate_limit_per_minute)
+    app.add_middleware(SecurityMiddleware)
+
+    # Inject metrics collector into system module
+    system._metrics_collector = _metrics
+
+    # Routers
+    app.include_router(snapshots.router)
+    app.include_router(drift.router)
+    app.include_router(system.router)
+    app.include_router(ws_router)
+
+    # Request logging middleware
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        duration = time.time() - start
+        logger.info("%s %s %s %.3f", request.method, request.url.path, response.status_code, duration)
+        return response
+
+    # Exception handlers
+    @app.exception_handler(ValidationError)
+    async def validation_handler(request: Request, exc: ValidationError):
+        return JSONResponse(
+            status_code=422,
+            content={"error_code": "VALIDATION_ERROR", "message": "Invalid request data", "details": exc.errors(), "api_version": "v1"},
+        )
+
+    @app.exception_handler(Exception)
+    async def generic_handler(request: Request, exc: Exception):
+        logger.error("Unhandled exception: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error_code": "INTERNAL_ERROR", "message": "An internal error occurred", "details": {}, "api_version": "v1"},
+        )
+
+    @app.exception_handler(404)
+    async def not_found_handler(request: Request, exc):
+        return JSONResponse(
+            status_code=404,
+            content={"error_code": "NOT_FOUND", "message": f"Endpoint {request.url.path} not found", "details": {}, "api_version": "v1"},
+        )
+
+    @app.on_event("startup")
+    async def startup():
+        await init_db(cfg.database.path)
+        _metrics.start()
+        logger.info("DevReady Daemon started on %s:%d", cfg.daemon.host, cfg.daemon.port)
+
+    @app.on_event("shutdown")
+    async def shutdown():
+        await _metrics.stop()
+        await close_engine()
+        logger.info("DevReady Daemon shut down")
+
+    return app
+
+
+app = create_app()
