@@ -6,17 +6,29 @@ import time
 logger = logging.getLogger(__name__)
 
 class FreshnessAnalyzer:
-    """Analyzes dependencies for freshness and security updates."""
+    """Analyzes dependencies for freshness. Version data loaded from a JSON file if present."""
 
-    def __init__(self, latest_versions_cache: Optional[Dict[str, str]] = None):
-        # In a real app, this would be backed by a local DB or network fetcher
-        self.latest_versions = latest_versions_cache or {
-            "fastapi": "0.109.0",
-            "pydantic": "2.6.0",
-            "requests": "2.31.0",
-            "node": "20.11.0",
-            "python": "3.12.1"
-        }
+    _BUILTIN_VERSIONS = {
+        "fastapi": "0.115.0", "pydantic": "2.7.0", "requests": "2.32.0",
+        "uvicorn": "0.30.0", "sqlalchemy": "2.0.30", "httpx": "0.27.0",
+        "typer": "0.12.0", "rich": "13.7.0",
+        "node": "22.0.0", "python": "3.12.3", "go": "1.22.0",
+        "rust": "1.78.0", "docker": "26.0.0",
+    }
+
+    def __init__(self, latest_versions_cache: dict | None = None):
+        import json, os
+        self.latest_versions = dict(self._BUILTIN_VERSIONS)
+        # Allow override via ~/.devready/versions.json
+        versions_file = os.path.expanduser("~/.devready/versions.json")
+        if os.path.exists(versions_file):
+            try:
+                with open(versions_file) as f:
+                    self.latest_versions.update(json.load(f))
+            except Exception:
+                pass
+        if latest_versions_cache:
+            self.latest_versions.update(latest_versions_cache)
 
     def analyze(self, dependencies: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

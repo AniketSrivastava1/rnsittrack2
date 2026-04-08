@@ -125,7 +125,7 @@ class DevReadyDashboard(App):
     async def listen_to_daemon(self):
         """Listen for real-time updates via WebSocket."""
         # Using a hypothetical WebSocket URL based on base_url
-        ws_url = self.daemon_client.base_url.replace("http", "ws") + "/api/v1/ws"
+        ws_url = self.daemon_client.base_url.replace("http", "ws") + f"/ws/scan?project_path={self.project_path}"
         while True:
             try:
                 async with websockets.connect(ws_url) as websocket:

@@ -101,7 +101,7 @@ async def list_snapshots_history(
     project_path: Optional[str] = None,
     limit: int = 200,
 ) -> List[EnvironmentSnapshot]:
-    """Return snapshots within the last `days` days, ordered ascending by timestamp."""
+    """List snapshots within the last `days` days, optionally filtered by project_path."""
     cutoff = datetime.utcnow() - timedelta(days=days)
     async def _do():
         stmt = (
@@ -109,28 +109,6 @@ async def list_snapshots_history(
             .where(EnvironmentSnapshot.timestamp >= cutoff)
             .order_by(EnvironmentSnapshot.timestamp.asc())
             .limit(min(limit, 1000))
-        )
-        if project_path:
-            stmt = stmt.where(EnvironmentSnapshot.project_path == project_path)
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
-    return await _retry(_do)
-
-
-async def list_snapshots_history(
-    session: AsyncSession,
-    days: int = 30,
-    project_path: Optional[str] = None,
-    limit: int = 200,
-) -> List[EnvironmentSnapshot]:
-    """List snapshots within the last `days` days, optionally filtered by project_path."""
-    cutoff = datetime.utcnow() - timedelta(days=days)
-    async def _do():
-        stmt = (
-            select(EnvironmentSnapshot)
-            .where(EnvironmentSnapshot.timestamp >= cutoff)
-            .order_by(EnvironmentSnapshot.timestamp.desc())
-            .limit(limit)
         )
         if project_path:
             stmt = stmt.where(EnvironmentSnapshot.project_path == project_path)

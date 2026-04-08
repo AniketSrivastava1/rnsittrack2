@@ -11,6 +11,7 @@ from devready.daemon.models import (
     SnapshotCreateRequest,
     SnapshotResponse,
     ToolVersion,
+    PolicyViolation,
 )
 from devready.daemon.services.drift_service import DriftDetectionService
 from devready.daemon.services.snapshot_service import SnapshotService
@@ -31,6 +32,7 @@ def _to_response(snap) -> SnapshotResponse:
         env_vars=snap.env_vars,
         health_score=snap.health_score,
         scan_duration_seconds=snap.scan_duration_seconds,
+        policy_violations=[PolicyViolation(**v) for v in (snap.policy_violations or [])],
     )
 
 

@@ -42,7 +42,10 @@ class DaemonClient:
 
     async def scan(self, project_path: Optional[str] = None, scope: str = "full") -> Dict[str, Any]:
         """Request a scan from the daemon."""
-        return await self._request("POST", "/api/v1/scan", json={"project_path": project_path, "scope": scope})
+        payload = {"scope": scope}
+        if project_path:
+            payload["project_path"] = project_path
+        return await self._request("POST", "/api/v1/scan", json=payload)
     
     async def get_snapshot(self, snapshot_id: str) -> Dict[str, Any]:
         """Retrieve a specific snapshot."""
@@ -72,12 +75,21 @@ class DaemonClient:
             json={"snapshot_a_id": snapshot_a_id, "snapshot_b_id": snapshot_b_id}
         )
     
-    async def apply_fixes(self, snapshot_id: str, fix_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+    async def get_fix_recommendations(self, project_path: Optional[str] = None, snapshot_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get fix recommendations for a snapshot or project."""
+        params = {}
+        if snapshot_id:
+            params["snapshot_id"] = snapshot_id
+        elif project_path:
+            params["project_path"] = project_path
+        return await self._request("GET", "/api/v1/fixes", params=params)
+
+    async def apply_fixes(self, fix_ids: List[str], dry_run: bool = False) -> Dict[str, Any]:
         """Apply recommended fixes."""
         return await self._request(
             "POST",
             "/api/v1/fixes/apply",
-            json={"snapshot_id": snapshot_id, "fix_ids": fix_ids}
+            json={"fix_ids": fix_ids, "dry_run": dry_run}
         )
     
     async def check_daemon_health(self) -> bool:
