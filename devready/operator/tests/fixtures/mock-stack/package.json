@@ -1,0 +1,8 @@
+{
+  "name": "mock-stack",
+  "version": "1.0.0",
+  "description": "Mock project for DevReady E2E testing",
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}
