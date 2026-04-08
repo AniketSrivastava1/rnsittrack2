@@ -25,7 +25,8 @@ class SnapshotService:
     async def create_snapshot(
         self, session: AsyncSession, req: SnapshotCreateRequest
     ) -> EnvironmentSnapshot:
-        project_path, project_name = _context_detector.detect(req.project_path)
+        project_path, detected_name = _context_detector.detect(req.project_path)
+        project_name = req.project_name or detected_name
 
         health_score = _health_calc.calculate_score(
             EnvironmentSnapshot(
