@@ -4,8 +4,8 @@ import sys
 import json
 import toml
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from mise_generator import MiseGenerator
-from devcontainer_generator import DevcontainerGenerator
+from devready.operator.mise_generator import MiseGenerator
+from devready.operator.devcontainer_generator import DevcontainerGenerator
 
 def test_config_generation_syntax_and_merge(tmp_path):
     # Tests requirements 6.6, 7.4, 8.7, 6.8, 7.7

@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from container_factory import ContainerFactory
+from devready.operator.container_factory import ContainerFactory
 
 def test_base_image_selection():
     factory = ContainerFactory()

@@ -93,3 +93,23 @@ async def delete_old_snapshots(session: AsyncSession, retention_days: int) -> in
         await session.commit()
         return result.rowcount
     return await _retry(_do)
+
+
+async def list_snapshots_history(
+    session: AsyncSession,
+    days: int = 30,
+    project_path: Optional[str] = None,
+) -> List[EnvironmentSnapshot]:
+    """List snapshots within the last `days` days, optionally filtered by project_path."""
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    async def _do():
+        stmt = (
+            select(EnvironmentSnapshot)
+            .where(EnvironmentSnapshot.timestamp >= cutoff)
+            .order_by(EnvironmentSnapshot.timestamp.desc())
+        )
+        if project_path:
+            stmt = stmt.where(EnvironmentSnapshot.project_path == project_path)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+    return await _retry(_do)

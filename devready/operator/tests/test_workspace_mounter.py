@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from workspace_mounter import WorkspaceMounter
+from devready.operator.workspace_mounter import WorkspaceMounter
 
 def test_path_handling():
     # Property 8: Platform Compatibility (Windows paths)
