@@ -36,6 +36,7 @@ class ToolRequirement(BaseModel):
     min_version: Optional[str] = None
     max_version: Optional[str] = None
     allowed_managers: Optional[List[str]] = None
+    severity: Literal["critical", "warning", "info"] = "warning"
 
 
 class EnvVarRequirement(BaseModel):
