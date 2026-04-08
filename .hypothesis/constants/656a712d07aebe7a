@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/context.py
+# hypothesis_version: 6.151.11
+
+[256, '.git', 'Cargo.toml', 'go.mod', 'name', 'package', 'package.json', 'poetry', 'pom.xml', 'project', 'pyproject.toml', 'tool']

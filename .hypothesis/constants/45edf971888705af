@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/api/websocket.py
+# hypothesis_version: 6.151.11
+
+['/', '/ws/scan']
