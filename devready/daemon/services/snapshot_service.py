@@ -16,9 +16,11 @@ from devready.daemon.db_operations import (
 )
 from devready.daemon.models import EnvironmentSnapshot, SnapshotCreateRequest
 from devready.daemon.services.health_calculator import HealthScoreCalculator
+from devready.daemon.services.drift_service import DriftDetectionService
 
 _context_detector = ContextDetector()
 _health_calc = HealthScoreCalculator()
+_drift_svc = DriftDetectionService()
 
 
 class SnapshotService:
@@ -28,18 +30,20 @@ class SnapshotService:
         project_path, detected_name = _context_detector.detect(req.project_path)
         project_name = req.project_name or detected_name
 
-        health_score = _health_calc.calculate_score(
-            EnvironmentSnapshot(
-                project_path=project_path,
-                project_name=project_name,
-                tools=[t.model_dump() for t in req.tools],
-                dependencies=req.dependencies,
-                env_vars=req.env_vars,
-                health_score=0,
-                scan_duration_seconds=req.scan_duration_seconds,
-            ),
-            req.team_policy,
+        snapshot_base = EnvironmentSnapshot(
+            project_path=project_path,
+            project_name=project_name,
+            tools=[t.model_dump() for t in req.tools],
+            dependencies=req.dependencies,
+            env_vars=req.env_vars,
+            health_score=0,
+            scan_duration_seconds=req.scan_duration_seconds,
         )
+
+        health_score = _health_calc.calculate_score(snapshot_base, req.team_policy)
+        violations = []
+        if req.team_policy:
+            violations = _drift_svc.check_policy_compliance(snapshot_base, req.team_policy)
 
         snapshot = EnvironmentSnapshot(
             project_path=project_path,
@@ -49,6 +53,7 @@ class SnapshotService:
             env_vars=req.env_vars,
             health_score=health_score,
             scan_duration_seconds=req.scan_duration_seconds,
+            violations=[v.model_dump() for v in violations],
         )
         return await insert_snapshot(session, snapshot)
 

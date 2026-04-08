@@ -89,6 +89,7 @@ class EnvironmentSnapshot(SQLModel, table=True):
     env_vars: Dict[str, str] = SQLField(default_factory=dict, sa_column=Column(JSON))
     health_score: int = SQLField(ge=0, le=100)
     scan_duration_seconds: float
+    violations: List[Dict[str, Any]] = SQLField(default_factory=list, sa_column=Column(JSON))
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +116,7 @@ class SnapshotResponse(BaseModel):
     env_vars: Dict[str, str]
     health_score: int
     scan_duration_seconds: float
+    violations: List[PolicyViolation] = Field(default_factory=list)
     api_version: str = "v1"
 
 

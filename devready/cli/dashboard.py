@@ -16,12 +16,17 @@ class HealthWidget(Static):
     score = reactive(0)
     
     def render(self) -> str:
-        if self.score >= 90:
-            color, emoji = "green", "✅"
-        elif self.score >= 70:
-            color, emoji = "yellow", "⚠️"
+        if sys.platform == "win32":
+            pass_mark, warn_mark, fail_mark = "[PASS]", "[WARN]", "[FAIL]"
         else:
-            color, emoji = "red", "❌"
+            pass_mark, warn_mark, fail_mark = "✅", "⚠️", "❌"
+            
+        if self.score >= 90:
+            color, emoji = "green", pass_mark
+        elif self.score >= 70:
+            color, emoji = "yellow", warn_mark
+        else:
+            color, emoji = "red", fail_mark
         return f"{emoji} Health Score: [#ffffff on {color}]{self.score}/100[/]"
 
 class DevReadyDashboard(App):

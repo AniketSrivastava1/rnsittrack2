@@ -38,15 +38,20 @@ class RichFormatter:
     
     def print_health_score(self, score: int):
         """Display health score panel with dynamic color."""
+        if sys.platform == "win32":
+            pass_mark, warn_mark, fail_mark = "[PASS]", "[WARN]", "[FAIL]"
+        else:
+            pass_mark, warn_mark, fail_mark = "✅", "⚠️", "❌"
+
         if score >= 90:
             color = "health.high"
-            emoji = "✅"
+            emoji = pass_mark
         elif score >= 70:
             color = "health.medium"
-            emoji = "⚠️"
+            emoji = warn_mark
         else:
             color = "health.low"
-            emoji = "❌"
+            emoji = fail_mark
         
         self.console.print(
             Panel(
@@ -146,6 +151,34 @@ class RichFormatter:
         drift_score = drift.get("drift_score", 0)
         self.console.print(f"Drift Score: [bold]{drift_score}/100[/bold]\n")
 
+    def print_violations(self, violations: List[Dict[str, Any]]):
+        """Display policy violations in a formatted list."""
+        if not violations:
+            return
+
+        self.console.print(Panel("Policy Violations", style="bold red", expand=False))
+        
+        for v in violations:
+            severity = v.get("severity", "error")
+            color = "red" if severity == "error" else "yellow"
+            
+            if sys.platform == "win32":
+                emoji = "[X]" if severity == "error" else "[!]"
+            else:
+                emoji = "❌" if severity == "error" else "⚠️"
+            
+            msg = Text.assemble(
+                (f"{emoji} ", color),
+                (v.get("tool_or_var_name", "Unknown"), f"bold {color}"),
+                (": ", "dim"),
+                (v.get("message", "Violation detected"), color)
+            )
+            self.console.print(msg)
+            if v.get("expected"):
+                self.console.print(f"    [dim]Expected: {v['expected']} | Actual: {v.get('actual', 'None')}[/dim]")
+        
+        self.console.print()
+
     def print_fix_recommendations(self, fixes: List[Dict[str, Any]]):
         """Display fix recommendations with actionable steps."""
         if not fixes:
@@ -181,7 +214,8 @@ class RichFormatter:
     
     def print_error(self, message: str, details: Optional[str] = None):
         """Print a formatted error message."""
-        self.console.print(f"\n[bold red]✗ Error:[/bold red] {message}")
+        prefix = "[X]" if sys.platform == "win32" else "✗"
+        self.console.print(f"\n[bold red]{prefix} Error:[/bold red] {message}")
         if details:
             self.console.print(f"[dim]{details}[/dim]")
         self.console.print()

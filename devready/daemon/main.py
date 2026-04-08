@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from devready.daemon.api import drift, snapshots, system
+from devready.daemon.api import drift, snapshots, system, scan
 from devready.daemon.api.websocket import router as ws_router
 from devready.daemon.config import load_config
 from devready.daemon.database import close_engine, init_db
@@ -57,6 +57,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
     # Routers
     app.include_router(snapshots.router)
     app.include_router(drift.router)
+    app.include_router(scan.router)
     app.include_router(system.router)
     app.include_router(ws_router)
 
