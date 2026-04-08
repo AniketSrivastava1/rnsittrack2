@@ -1,10 +1,11 @@
 import os
+import sys
 import pytest
 from pathlib import Path
 from devready.inspector.path_handler import PathHandler
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows path test")
 def test_normalize_basic():
-    # Test normalization on Windows (replaces \ with /)
     path = "C:\\Users\\Aniket\\Project"
     normalized = PathHandler.normalize(path)
     assert normalized == "C:/Users/Aniket/Project"

@@ -58,7 +58,7 @@ def test_perfect_compliance_yields_100(policy):
         seen[req.name] = req.min_version
 
     compliant_tools = [
-        ToolVersion(name=name, version="99.0.0", path="/usr/bin/" + name)
+        ToolVersion(name=name, version="999.999.999", path="/usr/bin/" + name)
         for name in seen
     ]
     snap = _make_snap(compliant_tools)
