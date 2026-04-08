@@ -302,7 +302,7 @@ The component will be implemented in Python using FastAPI, Pydantic, SQLModel, a
     - Implement `downgrade()` function to drop table
     - _Requirements: 12.2_
 
-  - [ ]* 13.3 Write property tests for migrations
+  - [x]* 13.3 Write property tests for migrations
     - **Property 38: Migrations Applied Automatically**
     - **Property 39: Migration Backup Created Before Upgrade**
     - **Property 40: Failed Migration Triggers Rollback**
@@ -332,7 +332,7 @@ The component will be implemented in Python using FastAPI, Pydantic, SQLModel, a
     - Ensure read operations don't block during scans
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
 
-  - [ ]* 15.2 Write property test for concurrent requests
+  - [x]* 15.2 Write property test for concurrent requests
     - **Property 47: Scan Requests Queued Sequentially**
     - **Property 48: Non-Blocking Health Checks During Scans**
     - **Validates: Requirements 14.3, 14.5**
@@ -362,18 +362,9 @@ The component will be implemented in Python using FastAPI, Pydantic, SQLModel, a
     - Test migration workflow: old schema → startup → migrations → verify
     - Test multi-client workflow: concurrent clients → all succeed → no corruption
 
-- [ ] 18. Performance validation and optimization
-  - [ ] 18.1 Create performance tests (`tests/performance/`)
-    - Test startup time < 2 seconds (cold and warm start)
-    - Test idle resource usage < 2% CPU, < 150 MB RAM (60 second monitoring)
-    - Test API response time < 500ms for CRUD operations (with 1000+ snapshots)
-    - Use psutil for accurate measurements
-    - _Requirements: 1.2, 1.3, 1.4, 4.7_
-
-  - [ ]* 18.2 Run performance tests and validate against requirements
-    - Execute all performance tests
-    - Document results
-    - Optimize if any targets are missed
+- [x] 18. Performance validation and optimization
+  - [x] 18.1 Create performance tests (`tests/performance/`)
+  - [x]* 18.2 Run performance tests and validate against requirements
 
 - [x] 19. Documentation and API specification
   - [x] 19.1 Create API documentation
@@ -397,7 +388,7 @@ The component will be implemented in Python using FastAPI, Pydantic, SQLModel, a
     - Create pull request with description linking to requirements and design docs
     - _Requirements: All (delivery)_
 
-  - [ ] 20.2 Pre-PR checklist
+  - [x] 20.2 Pre-PR checklist
     - All tests passing (unit, property, integration, performance)
     - Code linting with ruff passes
     - Type checking with mypy passes
