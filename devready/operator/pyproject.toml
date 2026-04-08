@@ -1,0 +1,21 @@
+[project]
+name = "devready-operator"
+version = "0.1.0"
+description = "Operator component for DevReady"
+authors = [{name = "Reythem"}]
+dependencies = [
+    "python-on-whales>=0.70.0",
+    "GitPython>=3.1.0",
+    "sh>=2.0.0",
+    "toml>=0.10.0",
+    "psutil"
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "hypothesis",
+    "pytest-asyncio",
+    "docker"
+]
