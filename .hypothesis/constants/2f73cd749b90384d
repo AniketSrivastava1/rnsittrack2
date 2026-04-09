@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/middleware/security.py
+# hypothesis_version: 6.151.11
+
+[400, 413, 1024, '%2E%2E', '%2e%2e', '..', 'INVALID_PATH', 'PAYLOAD_TOO_LARGE', 'content-length', 'details', 'error_code', 'message']

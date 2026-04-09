@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/database.py
+# hypothesis_version: 6.151.11
+
+['check_same_thread', '~/.devready/state.db']

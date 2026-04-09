@@ -1,0 +1,78 @@
+{
+  "name": "devready",
+  "displayName": "DevReady",
+  "description": "Premium Environment Health & Fix Dashboard",
+  "version": "1.0.0",
+  "publisher": "devready-team",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devready-sidebar",
+          "title": "DevReady",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+    "views": {
+      "devready-sidebar": [
+        {
+          "id": "devready.dashboard",
+          "name": "Health Dashboard",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "devready.scan",
+        "title": "Scan Environment",
+        "icon": "$(search)"
+      },
+      {
+        "command": "devready.fixAll",
+        "title": "Apply All Fixes",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "devready.openDashboard",
+        "title": "Open DevReady Dashboard"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "devready.scan",
+          "when": "view == devready.dashboard",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "18.x",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/parser": "^6.19.1",
+    "@typescript-eslint/eslint-plugin": "^6.19.1"
+  }
+}

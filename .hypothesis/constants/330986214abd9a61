@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/main.py
+# hypothesis_version: 6.151.11
+
+[404, 422, 500, '%s %s %s %.3f', '*', '/api/docs', '/api/redoc', '1.0.0', 'DELETE', 'DevReady Daemon API', 'GET', 'INTERNAL_ERROR', 'Invalid request data', 'NOT_FOUND', 'POST', 'VALIDATION_ERROR', 'api_version', 'details', 'error_code', 'http', 'http://127.0.0.1', 'http://localhost', 'message', 'shutdown', 'startup', 'v1']

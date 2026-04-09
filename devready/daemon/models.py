@@ -1,0 +1,231 @@
+"""Core Pydantic/SQLModel data models for DevReady Daemon."""
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import Column, JSON
+from sqlmodel import SQLModel, Field as SQLField
+
+
+# ---------------------------------------------------------------------------
+# Value objects (Pydantic only, not persisted as tables)
+# ---------------------------------------------------------------------------
+
+class ToolVersion(BaseModel):
+    """Immutable representation of a single detected tool/runtime."""
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    version: str
+    path: str
+    manager: Optional[str] = None
+
+
+class VersionChange(BaseModel):
+    tool_name: str
+    old_version: str
+    new_version: str
+    severity: Literal["major", "minor", "patch"]
+
+
+class DependencyNode(BaseModel):
+    id: str
+    name: str
+    version: str
+    type: str
+
+
+class DependencyLink(BaseModel):
+    source: str
+    target: str
+
+
+class DependencyGraph(BaseModel):
+    nodes: List[DependencyNode] = Field(default_factory=list)
+    links: List[DependencyLink] = Field(default_factory=list)
+
+
+class ToolRequirement(BaseModel):
+    name: str
+    min_version: Optional[str] = None
+    max_version: Optional[str] = None
+    allowed_managers: Optional[List[str]] = None
+    severity: Literal["critical", "warning", "info"] = "warning"
+
+
+class EnvVarRequirement(BaseModel):
+    name: str
+    required: bool
+    pattern: Optional[str] = None
+
+
+class TeamPolicy(BaseModel):
+    required_tools: List[ToolRequirement] = Field(default_factory=list)
+    forbidden_tools: List[str] = Field(default_factory=list)
+    version_constraints: Dict[str, str] = Field(default_factory=dict)
+    env_var_requirements: List[EnvVarRequirement] = Field(default_factory=list)
+
+
+class DriftReport(BaseModel):
+    snapshot_a_id: str
+    snapshot_b_id: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    added_tools: List[ToolVersion] = Field(default_factory=list)
+    removed_tools: List[ToolVersion] = Field(default_factory=list)
+    version_changes: List[VersionChange] = Field(default_factory=list)
+    drift_score: int = Field(ge=0, le=100)
+
+
+class PolicyViolation(BaseModel):
+    violation_type: Literal["missing_tool", "version_mismatch", "forbidden_tool", "missing_env_var"]
+    tool_or_var_name: str
+    expected: Optional[str] = None
+    actual: Optional[str] = None
+    severity: Literal["error", "warning"]
+    message: str
+
+
+# ---------------------------------------------------------------------------
+# SQLModel table (persisted)
+# ---------------------------------------------------------------------------
+
+class EnvironmentSnapshot(SQLModel, table=True):
+    """Primary entity for environment state, stored in SQLite."""
+    __tablename__ = "environmentsnapshot"
+
+    id: Optional[str] = SQLField(
+        default_factory=lambda: str(uuid.uuid4()), primary_key=True
+    )
+    timestamp: datetime = SQLField(default_factory=datetime.utcnow, index=True)
+    project_path: str = SQLField(index=True)
+    project_name: str
+    tools: List[Dict[str, Any]] = SQLField(default_factory=list, sa_column=Column(JSON))
+    dependencies: Dict[str, List[str]] = SQLField(default_factory=dict, sa_column=Column(JSON))
+    env_vars: Dict[str, str] = SQLField(default_factory=dict, sa_column=Column(JSON))
+    health_score: int = SQLField(ge=0, le=100)
+    scan_duration_seconds: float
+    freshness_score: float = SQLField(default=100.0)
+    ai_configs: Dict[str, Any] = SQLField(default_factory=dict, sa_column=Column(JSON))
+    policy_violations: List[Dict[str, Any]] = SQLField(default_factory=list, sa_column=Column(JSON))
+    dependency_graph: Dict[str, Any] = SQLField(default_factory=dict, sa_column=Column(JSON))
+
+
+# ---------------------------------------------------------------------------
+# Request / Response schemas
+# ---------------------------------------------------------------------------
+
+class SnapshotCreateRequest(BaseModel):
+    project_path: str
+    project_name: str
+    tools: List[ToolVersion] = Field(default_factory=list)
+    dependencies: Dict[str, List[str]] = Field(default_factory=dict)
+    env_vars: Dict[str, str] = Field(default_factory=dict)
+    scan_duration_seconds: float = 0.0
+    freshness_score: float = 100.0
+    ai_configs: Dict[str, Any] = Field(default_factory=dict)
+    team_policy: Optional[TeamPolicy] = None
+    policy_violations: List[PolicyViolation] = Field(default_factory=list)
+    dependency_graph: Optional[DependencyGraph] = None
+
+
+class SnapshotResponse(BaseModel):
+    snapshot_id: str
+    timestamp: datetime
+    project_path: str
+    project_name: str
+    tools: List[ToolVersion]
+    dependencies: Dict[str, List[str]]
+    env_vars: Dict[str, str]
+    health_score: int
+    scan_duration_seconds: float
+    freshness_score: float = 100.0
+    policy_violations: List[PolicyViolation] = Field(default_factory=list)
+    dependency_graph: Optional[DependencyGraph] = None
+    api_version: str = "v1"
+
+
+class DriftCompareRequest(BaseModel):
+    snapshot_a_id: str
+    snapshot_b_id: str
+
+
+class PolicyCheckRequest(BaseModel):
+    snapshot_id: str
+    team_policy: TeamPolicy
+
+
+class MetricsResponse(BaseModel):
+    cpu_percent: float
+    memory_mb: float
+    scan_count: int
+    avg_scan_duration: float
+    api_version: str = "v1"
+
+
+class VersionResponse(BaseModel):
+    api_version: str
+    daemon_version: str
+    build_number: str
+
+
+class ErrorResponse(BaseModel):
+    error_code: str
+    message: str
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Fix recommendation models
+# ---------------------------------------------------------------------------
+
+class FixRecommendation(BaseModel):
+    fix_id: str
+    issue_description: str
+    command: Optional[str] = None
+    manual_steps: Optional[str] = None
+    confidence: Literal["high", "medium", "low"] = "medium"
+    estimated_minutes: int = 15
+    affects_global: bool = False
+    violation: Optional[PolicyViolation] = None
+
+
+class FixResult(BaseModel):
+    fix_id: str
+    success: bool
+    message: str
+
+
+class FixApplyRequest(BaseModel):
+    fix_ids: List[str]
+    dry_run: bool = False
+
+
+class FixApplyResponse(BaseModel):
+    results: List[FixResult]
+
+
+# ---------------------------------------------------------------------------
+# Analytics models
+# ---------------------------------------------------------------------------
+
+class SnapshotHistoryEntry(BaseModel):
+    id: Optional[str]
+    timestamp: datetime
+    health_score: int
+    scan_duration_seconds: float
+    tools: List[Dict[str, Any]] = Field(default_factory=list)
+    policy_violations_count: int = 0
+
+
+class ViolationSummaryEntry(BaseModel):
+    violation_type: str
+    tool_or_var_name: str
+    count: int
+    last_seen: Optional[datetime] = None
+
+
+class ViolationSummaryResponse(BaseModel):
+    violations: List[ViolationSummaryEntry] = Field(default_factory=list)

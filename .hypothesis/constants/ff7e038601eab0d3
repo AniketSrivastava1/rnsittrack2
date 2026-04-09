@@ -1,0 +1,4 @@
+# file: /home/unichronic/rnsittrack2/devready/daemon/config.py
+# hypothesis_version: 6.151.11
+
+[100, 8443, 65535, '127.0.0.1', 'DEBUG', 'DEVREADY_PORT', 'ERROR', 'INFO', 'WARN', 'WARNING', 'backup_count', 'backup_enabled', 'daemon', 'database', 'file', 'host', 'level', 'logging', 'max_concurrent_scans', 'max_size_mb', 'path', 'performance', 'port', 'retention_days', 'workers', '~/.devready/state.db']

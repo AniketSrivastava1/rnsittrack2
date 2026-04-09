@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevReady Dashboard Preview</title>
+    <style>
+        :root {
+            --vscode-foreground: #cccccc;
+            --vscode-sideBar-background: #252526;
+            --vscode-panel-border: #37373d;
+            --vscode-button-background: #0e639c;
+            --vscode-button-foreground: #ffffff;
+            --vscode-button-hoverBackground: #1177bb;
+            --health-green: #4caf50;
+            --health-yellow: #ffeb3b;
+            --health-red: #f44336;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            padding: 20px; 
+            color: var(--vscode-foreground); 
+            background-color: #1e1e1e;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .score-container { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            padding: 20px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 8px solid var(--health-yellow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px auto;
+            font-size: 2.5em;
+            font-weight: bold;
+            color: var(--health-yellow);
+        }
+
+        .score-label {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+        }
+
+        .section-title {
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            opacity: 0.6;
+        }
+
+        .issue-card { 
+            background: var(--vscode-sideBar-background); 
+            border: 1px solid var(--vscode-panel-border);
+            padding: 15px; 
+            border-radius: 6px; 
+            margin-bottom: 15px;
+            transition: transform 0.1s;
+        }
+
+        .issue-card:hover {
+            border-color: var(--vscode-button-background);
+        }
+
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .issue-title { 
+            font-weight: bold; 
+            flex: 1;
+        }
+
+        .severity-badge {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(244, 67, 54, 0.2);
+            color: var(--health-red);
+            border: 1px solid var(--health-red);
+        }
+
+        .issue-description {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 15px;
+        }
+
+        .fix-button { 
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none; 
+            padding: 8px 12px; 
+            cursor: pointer; 
+            border-radius: 4px;
+            width: 100%; 
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .fix-button:hover { 
+            background: var(--vscode-button-hoverBackground); 
+        }
+
+        .scan-action {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .secondary-button {
+            background: transparent;
+            border: 1px solid var(--vscode-panel-border);
+            color: var(--vscode-foreground);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .secondary-button:hover {
+            background: rgba(255,255,255,0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="score-container">
+            <div class="score-label">Environment Health</div>
+            <div class="score-circle">75</div>
+            <div style="margin-top: 10px; color: var(--health-yellow)">Needs Attention</div>
+        </div>
+
+        <div class="section-title">Required Fixes (3)</div>
+
+        <div id="issues-list">
+            <!-- Mock Issue 1 -->
+            <div class="issue-card">
+                <div class="issue-header">
+                    <div class="issue-title">Node.js Version Mismatch</div>
+                    <span class="severity-badge">ERROR</span>
+                </div>
+                <div class="issue-description">Expected v20.x but found v18.12.1. Update required for team consistency.</div>
+                <button class="fix-button">✨ Run: nvm install 20</button>
+            </div>
+
+            <!-- Mock Issue 2 -->
+            <div class="issue-card">
+                <div class="issue-header">
+                    <div class="issue-title">Missing .cursorrules</div>
+                    <span class="severity-badge" style="color:var(--health-yellow); border-color:var(--health-yellow); background:rgba(255,235,59,0.1)">WARN</span>
+                </div>
+                <div class="issue-description">AI Agent instructions are missing. This may result in suboptimal co-coding.</div>
+                <button class="fix-button">✨ Initialize .cursorrules</button>
+            </div>
+
+            <!-- Mock Issue 3 -->
+            <div class="issue-card">
+                <div class="issue-header">
+                    <div class="issue-title">Missing AWS_REGION</div>
+                    <span class="severity-badge">ERROR</span>
+                </div>
+                <div class="issue-description">Required environment variable for deployment is not set in .env.</div>
+                <button class="fix-button">✨ Set Environment Variable</button>
+            </div>
+        </div>
+
+        <div class="scan-action">
+            <button class="secondary-button" onclick="alert('Scan triggered! Check VS Code Output for progress.')">
+                🔄 Rescan Environment
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // In the real extension, this script would communicate with ArchitectClient.ts
+        console.log("DevReady Preview Loaded");
+    </script>
+</body>
+</html>
