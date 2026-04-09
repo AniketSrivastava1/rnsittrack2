@@ -27,6 +27,7 @@ class EnvironmentSnapshot(BaseModel):
     ai_configs: Dict[str, Any]
     freshness_score: float
     freshness_analysis: List[Dict[str, Any]] = Field(default_factory=list)
+    dependency_graph: Dict[str, Any] = Field(default_factory=dict)
     system_info: Dict[str, Any] = Field(default_factory=dict)
     version_managers: Dict[str, Optional[str]] = Field(default_factory=dict)
     performance: Dict[str, Any]
