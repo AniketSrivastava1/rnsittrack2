@@ -56,13 +56,13 @@ class HookManager:
             return False
 
     def install_post_merge_hook(self) -> bool:
-        script = 'devready scan --quick || true'
+        script = 'python -m devready.operator.hooks.post_merge || true'
         return self._install_hook("post-merge", script)
         
     def install_post_checkout_hook(self) -> bool:
-        script = 'devready scan --quick || true' 
+        script = 'python -m devready.operator.hooks.post_merge || true' 
         return self._install_hook("post-checkout", script)
 
     def install_pre_commit_hook(self) -> bool:
-        script = 'devready validate || exit 1'
+        script = 'python -m devready.operator.hooks.pre_commit || true'
         return self._install_hook("pre-commit", script)

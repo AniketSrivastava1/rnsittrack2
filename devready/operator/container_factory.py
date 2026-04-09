@@ -2,6 +2,7 @@ import logging
 import time
 from typing import List
 import python_on_whales
+from devready.operator.workspace_mounter import WorkspaceMounter
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ TECH_IMAGE_MAPPING = {
 class ContainerFactory:
     def __init__(self):
         self.client = python_on_whales.DockerClient()
+        self.workspace_mounter = WorkspaceMounter()
 
     def get_base_image(self, tech_stack: str) -> str:
         image = TECH_IMAGE_MAPPING.get(tech_stack.lower(), "ubuntu:22.04")
@@ -26,12 +28,13 @@ class ContainerFactory:
         """Create and start a sandbox container with workspace mounted."""
         start_time = time.time()
         image = self.get_base_image(tech_stack)
+        mounts = self.workspace_mounter.mount_workspace(workspace_path)
         
         logger.debug(f"Creating sandbox container for {tech_stack} with workspace {workspace_path}")
         
         try:
             kwargs = {
-                "volumes": [(workspace_path, "/workspace", "rw")],
+                "volumes": mounts,
                 "workdir": "/workspace",
                 "remove": True,
                 "detach": True,
@@ -40,12 +43,9 @@ class ContainerFactory:
             if command:
                 container = self.client.run(image, command, **kwargs)
             else:
-                # Need a long running command if detach is true, else it exits immediately
                 container = self.client.run(image, ["tail", "-f", "/dev/null"], **kwargs)
                 
             creation_time = time.time() - start_time
-            logger.debug(f"Container created in {creation_time:.2f} seconds")
-            
             if creation_time > 3.0:
                 logger.warning(f"Container creation took {creation_time:.2f}s, exceeding 3s target")
                 

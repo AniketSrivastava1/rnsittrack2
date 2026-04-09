@@ -1,6 +1,7 @@
 """Main FastAPI application for DevReady Daemon."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -22,6 +23,21 @@ from devready.daemon.services.metrics_collector import MetricsCollector
 logger = logging.getLogger(__name__)
 
 _metrics = MetricsCollector()
+
+
+async def _cleanup_loop(db_path: str, retention_days: int) -> None:
+    """Run snapshot cleanup once a day."""
+    while True:
+        await asyncio.sleep(86400)  # 24 hours
+        try:
+            from devready.daemon.database import get_engine
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from devready.daemon.services.snapshot_service import SnapshotService
+            async with AsyncSession(get_engine(db_path), expire_on_commit=False) as session:
+                deleted = await SnapshotService().cleanup_old_snapshots(session, retention_days)
+                logger.info("Cleanup: removed %d snapshots older than %d days", deleted, retention_days)
+        except Exception as exc:
+            logger.warning("Snapshot cleanup failed: %s", exc)
 
 
 def create_app(config_path: str | None = None) -> FastAPI:
@@ -52,8 +68,9 @@ def create_app(config_path: str | None = None) -> FastAPI:
     app.add_middleware(RateLimitMiddleware, max_requests=cfg.performance.rate_limit_per_minute)
     app.add_middleware(SecurityMiddleware)
 
-    # Inject metrics collector into system module
+    # Inject metrics collector into system and scan modules
     system._metrics_collector = _metrics
+    scan._metrics_collector = _metrics
 
     # Routers — analytics/lens must be registered before snapshots to avoid
     # /snapshots/history being shadowed by /snapshots/{snapshot_id}
@@ -106,6 +123,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
     async def startup():
         await init_db(cfg.database.path)
         _metrics.start()
+        asyncio.create_task(_cleanup_loop(cfg.database.path, cfg.database.retention_days))
         logger.info("DevReady Daemon started on %s:%d", cfg.daemon.host, cfg.daemon.port)
 
     @app.on_event("shutdown")

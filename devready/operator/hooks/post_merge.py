@@ -1,20 +1,22 @@
 import sys
 import logging
-import argparse
 
 logger = logging.getLogger(__name__)
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--skip-scan", action="store_true")
-    args, unknown = parser.parse_known_args()
-    
-    if args.skip_scan:
-        print("DevReady scan skipped.")
-        sys.exit(0)
-        
-    print("DevReady: Running quick scan after merge/checkout...")
-    print("DevReady: Scan complete in 1.4s. No issues found.")
+    import subprocess
+    print("DevReady: Running scan after merge...")
+    try:
+        result = subprocess.run(
+            ["devready", "scan", "--scope", "full"],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode != 0:
+            print("DevReady: Drift detected after merge. Run 'devready status' for details.")
+        else:
+            print("DevReady: Environment looks good after merge.")
+    except Exception as e:
+        logger.debug("DevReady post-merge scan skipped: %s", e)
     sys.exit(0)
 
 if __name__ == "__main__":

@@ -23,6 +23,18 @@ def _fetch(url: str, daemon_url: str) -> dict:
         raise typer.Exit(1)
 
 
+def _get_daemon_url(override: str) -> str:
+    """Resolve daemon URL: CLI flag > env var > ConfigManager."""
+    default = "http://localhost:8443"
+    if override != default:  # explicit flag was passed
+        return override
+    try:
+        from devready.cli.config_manager import ConfigManager
+        return ConfigManager().get("daemon_url", default)
+    except Exception:
+        return default
+
+
 def _sparkline(scores: list) -> str:
     bars = "▁▂▃▄▅▆▇█"
     if not scores:
@@ -42,6 +54,8 @@ def metrics(
 ):
     if ctx.invoked_subcommand:
         return
+
+    daemon_url = _get_daemon_url(daemon_url)
 
     days = "30" if full else "7"
     p = f"&project_path={project}" if project else ""

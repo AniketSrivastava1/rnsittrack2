@@ -37,12 +37,11 @@ class DependencyScanner:
     def _scan_with_syft(self, project_path: str) -> Dict[str, Any]:
         try:
             result = self.wrapper.execute(["syft", project_path, "-o", "json"], timeout_seconds=4.0)
-            if result.exit_code == 0:
-                dependencies = self.parser.parse(result.stdout)
-                return {"success": True, "dependencies": dependencies, "count": len(dependencies)}
-            return {"success": False, "dependencies": [], "error": result.stderr}
+            dependencies = self.parser.parse(result.stdout)
+            return {"success": True, "dependencies": dependencies, "count": len(dependencies)}
         except Exception as e:
-            return {"success": False, "dependencies": [], "error": str(e)}
+            logger.info("syft scan failed (%s), falling back to manifest parsing", e)
+            return self._scan_manifests(project_path)
 
     def _scan_manifests(self, project_path: str) -> Dict[str, Any]:
         """Parse dependency manifests directly without syft."""

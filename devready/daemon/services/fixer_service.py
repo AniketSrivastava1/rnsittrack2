@@ -38,8 +38,12 @@ class FixerService:
         if not recommendation.command:
             return FixResult(success=False, message="No command provided for this fix.")
         logger.info("Applying fix: %s", recommendation.description)
+        import asyncio
+        loop = asyncio.get_event_loop()
         try:
-            result = self.wrapper.execute(recommendation.command.split(), timeout_seconds=60.0)
+            result = await loop.run_in_executor(
+                None, lambda: self.wrapper.execute(recommendation.command.split(), timeout_seconds=60.0)
+            )
             return FixResult(
                 success=True,
                 message=f"Successfully applied fix: {recommendation.description}",

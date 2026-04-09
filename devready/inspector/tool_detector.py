@@ -47,11 +47,12 @@ class ToolDetector:
 
     def get_version(self, command: List[str]) -> Optional[str]:
         """Runs a version command and parses the output."""
+        import shutil
+        if not shutil.which(command[0]):
+            return None
         try:
-            # We use 1s timeout per tool as per requirement
             result = self.wrapper.execute(command, timeout_seconds=1.0)
             if result.exit_code == 0 or (command[0] == "java" and result.exit_code != 0):
-                # Java often prints version to stderr
                 output = result.stdout + result.stderr
                 return self.parse_version(output)
             return None

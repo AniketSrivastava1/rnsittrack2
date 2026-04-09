@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -59,17 +58,22 @@ def _extract_project_name(root: Path) -> str:
     return root.name
 
 
-@lru_cache(maxsize=256)
-def _cached_detect(working_dir: str) -> Tuple[str, str]:
-    start = Path(working_dir)
-    root = _find_project_root(start)
-    if root is None:
-        return str(start.resolve()), start.resolve().name
-    return str(root), _extract_project_name(root)
-
-
 class ContextDetector:
+    def __init__(self) -> None:
+        self._cache: dict[str, tuple[str, str]] = {}
+
     def detect(self, working_directory: Optional[str] = None) -> Tuple[str, str]:
         """Return (project_path, project_name) for the given directory."""
         wd = working_directory or str(Path.cwd())
-        return _cached_detect(wd)
+        if wd not in self._cache:
+            start = Path(wd)
+            root = _find_project_root(start)
+            if root is None:
+                self._cache[wd] = (str(start.resolve()), start.resolve().name)
+            else:
+                self._cache[wd] = (str(root), _extract_project_name(root))
+        return self._cache[wd]
+
+    def invalidate(self, working_directory: str) -> None:
+        """Clear cached result for a path (call after fixes that may rename/change project)."""
+        self._cache.pop(working_directory, None)

@@ -44,12 +44,14 @@ def _version_satisfies(actual: str, min_version: str) -> bool:
 
 
 def _version_distance(actual: str, required: str) -> str:
-    """Return 'major', 'minor', or 'patch' gap between actual and required."""
+    """Return 'major', 'minor', or 'patch' gap between two versions."""
     a = _version_tuple(actual)
     r = _version_tuple(required)
-    if len(r) > 0 and (len(a) == 0 or a[0] < r[0]):
+    if not a or not r:
+        return "patch"
+    if a[0] != r[0]:
         return "major"
-    if len(r) > 1 and (len(a) < 2 or a[1] < r[1]):
+    if len(a) > 1 and len(r) > 1 and a[1] != r[1]:
         return "minor"
     return "patch"
 
@@ -82,12 +84,20 @@ class HealthScoreCalculator:
             sev = getattr(req, "severity", "warning")
             if req.name not in tool_map:
                 score -= _MISSING_TOOL_DEDUCTION.get(sev, 10)
-            elif req.min_version and not _version_satisfies(tool_map[req.name], req.min_version):
-                gap = _version_distance(tool_map[req.name], req.min_version)
-                base = _VERSION_MISMATCH_DEDUCTION.get(sev, 5)
-                # Major gap costs full deduction, minor = 60%, patch = 30%
-                multiplier = {"major": 1.0, "minor": 0.6, "patch": 0.3}.get(gap, 1.0)
-                score -= round(base * multiplier)
+            else:
+                actual = tool_map[req.name]
+                too_old = req.min_version and not _version_satisfies(actual, req.min_version)
+                too_new = False
+                if req.max_version:
+                    a = tuple(int(x) for x in actual.split(".") if x.isdigit())
+                    m = tuple(int(x) for x in req.max_version.split(".") if x.isdigit())
+                    too_new = a > m
+                if too_old or too_new:
+                    ref = req.max_version if too_new else req.min_version
+                    gap = _version_distance(actual, ref)
+                    base = _VERSION_MISMATCH_DEDUCTION.get(sev, 5)
+                    multiplier = {"major": 1.0, "minor": 0.6, "patch": 0.3}.get(gap, 1.0)
+                    score -= round(base * multiplier)
 
         for forbidden in policy.forbidden_tools:
             if forbidden in tool_map:
@@ -96,6 +106,12 @@ class HealthScoreCalculator:
         for req in policy.env_var_requirements:
             if req.required and req.name not in snapshot.env_vars:
                 score -= _MISSING_ENV_VAR_DEDUCTION
+
+        score = max(0, score)
+        # Deduct for stale dependencies: freshness_score is 0-100, deduct up to 15 points
+        freshness = getattr(snapshot, "freshness_score", 100.0)
+        if freshness < 100:
+            score -= int((100 - freshness) * 0.15)
 
         return max(0, score)
 
@@ -113,4 +129,7 @@ class HealthScoreCalculator:
         # 60 base, +5 per core tool found, -8 per core tool missing, +1 per extra tool (cap 10)
         extra = max(0, len(tool_names) - len(found_core))
         score = 60 + (len(found_core) * 5) - (len(missing_core) * 8) + min(10, extra)
+        freshness = getattr(snapshot, "freshness_score", 100.0)
+        if freshness < 100:
+            score -= int((100 - freshness) * 0.15)
         return max(0, min(100, score))

@@ -91,5 +91,5 @@ class SubprocessWrapper:
 
         except Exception:
             duration_ms = (time.perf_counter() - start_time) * 1000
-            logger.exception(f"Exception occurred while executing command: {command_str}")
+            logger.debug("Command not available: %s", command_str)
             raise

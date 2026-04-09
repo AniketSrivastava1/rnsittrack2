@@ -68,10 +68,13 @@ class EnvCollector:
             
         return collected
 
-    def get_filtered_env(self, env_vars: Dict[str, str]) -> Dict[str, str]:
-        """Returns only the development-relevant and redacted environment variables."""
-        filtered = {}
-        for key in self.DEV_RELEVANT_KEYS:
-            if key in env_vars:
-                filtered[key] = env_vars[key]
+    def get_filtered_env(self, env_vars: Dict[str, str], project_root: Optional[str] = None) -> Dict[str, str]:
+        """Returns dev-relevant system env vars plus all .env file vars."""
+        filtered = {k: env_vars[k] for k in self.DEV_RELEVANT_KEYS if k in env_vars}
+        # Also include any vars that came from the .env file (not in system env)
+        if project_root:
+            env_path = Path(project_root) / ".env"
+            if env_path.exists():
+                dot_env = self.parse_env_file(env_path)
+                filtered.update(dot_env)
         return filtered

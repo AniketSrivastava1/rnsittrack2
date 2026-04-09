@@ -3,12 +3,15 @@ import subprocess
 import logging
 import time
 from typing import Dict, Any, List
+from devready.operator.platform_adapter import PlatformAdapter
 
 logger = logging.getLogger(__name__)
 
 class FixApplicator:
     def __init__(self):
         self.applied_fixes = []
+        self._platform = PlatformAdapter()
+        self._project_dir = os.getcwd()
 
     def require_user_confirmation(self, command: List[str]) -> bool:
         """Prompt user for confirmation for global fixes."""
@@ -20,6 +23,7 @@ class FixApplicator:
 
     def apply_fix(self, command: List[str], scope: str, project_dir: str) -> Dict[str, Any]:
         """Apply a verified fix on the host."""
+        self._project_dir = project_dir
         if scope in ["global", "user_global"]:
             if not self.require_user_confirmation(command):
                 logger.info(f"User declined global fix: {command}")
@@ -27,7 +31,9 @@ class FixApplicator:
 
         logger.info(f"Applying fix on host: {command}")
         start_time = time.time()
-        
+        # Wrap in platform shell if needed (handles Windows PowerShell)
+        if self._platform.is_windows and not self._platform.is_wsl:
+            command = self._platform.get_shell_cmd(" ".join(command))
         try:
             result = subprocess.run(
                 command, 
@@ -68,7 +74,20 @@ class FixApplicator:
             }
 
     def _update_architect_state(self, data):
-        logger.debug("Updating architect state with applied fix.")
+        """Trigger a background re-scan so the daemon snapshot reflects the applied fix."""
+        import threading
+        from devready.daemon.services.snapshot_service import _context_detector
+        _context_detector.invalidate(self._project_dir)
+
+        def _rescan():
+            try:
+                import httpx
+                # force_refresh=True bypasses the scan cache
+                httpx.post("http://localhost:8443/api/v1/scan",
+                           json={"project_path": self._project_dir, "force_refresh": True}, timeout=60)
+            except Exception as e:
+                logger.warning("Post-fix re-scan failed: %s", e)
+        threading.Thread(target=_rescan, daemon=True).start()
         
     def _verify_resolution(self, project_dir):
         logger.debug("Verifying issue resolution locally.")

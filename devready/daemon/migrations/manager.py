@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 _MIGRATIONS = [
     (1, "devready.daemon.migrations.001_initial_schema", "Initial schema"),
     (2, "devready.daemon.migrations.002_add_policy_violations", "Add policy_violations column"),
+    (3, "devready.daemon.migrations.003_add_freshness_score", "Add freshness_score column"),
+    (4, "devready.daemon.migrations.004_add_ai_configs", "Add ai_configs column"),
 ]
 
 

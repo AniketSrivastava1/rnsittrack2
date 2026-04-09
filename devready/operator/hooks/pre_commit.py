@@ -1,19 +1,23 @@
 import sys
 import logging
-import argparse
 
 logger = logging.getLogger(__name__)
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--no-verify", action="store_true")
-    args, unknown = parser.parse_known_args()
-    
-    if args.no_verify:
-        sys.exit(0)
-        
+    import subprocess
     print("DevReady: Validating environment before commit...")
-    print("DevReady: Validation passed.")
+    try:
+        result = subprocess.run(
+            ["devready", "scan", "--scope", "system"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            print("DevReady: Environment issues detected. Run 'devready status' for details.")
+            # Non-blocking — don't fail the commit, just warn
+        else:
+            print("DevReady: Environment OK.")
+    except Exception as e:
+        logger.debug("DevReady pre-commit check skipped: %s", e)
     sys.exit(0)
 
 if __name__ == "__main__":

@@ -90,6 +90,8 @@ class EnvironmentSnapshot(SQLModel, table=True):
     env_vars: Dict[str, str] = SQLField(default_factory=dict, sa_column=Column(JSON))
     health_score: int = SQLField(ge=0, le=100)
     scan_duration_seconds: float
+    freshness_score: float = SQLField(default=100.0)
+    ai_configs: Dict[str, Any] = SQLField(default_factory=dict, sa_column=Column(JSON))
     policy_violations: List[Dict[str, Any]] = SQLField(default_factory=list, sa_column=Column(JSON))
 
 
@@ -104,6 +106,8 @@ class SnapshotCreateRequest(BaseModel):
     dependencies: Dict[str, List[str]] = Field(default_factory=dict)
     env_vars: Dict[str, str] = Field(default_factory=dict)
     scan_duration_seconds: float = 0.0
+    freshness_score: float = 100.0
+    ai_configs: Dict[str, Any] = Field(default_factory=dict)
     team_policy: Optional[TeamPolicy] = None
     policy_violations: List[PolicyViolation] = Field(default_factory=list)
 
@@ -118,6 +122,7 @@ class SnapshotResponse(BaseModel):
     env_vars: Dict[str, str]
     health_score: int
     scan_duration_seconds: float
+    freshness_score: float = 100.0
     policy_violations: List[PolicyViolation] = Field(default_factory=list)
     api_version: str = "v1"
 

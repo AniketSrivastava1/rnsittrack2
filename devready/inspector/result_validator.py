@@ -1,6 +1,6 @@
 import logging
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -26,12 +26,13 @@ class EnvironmentSnapshot(BaseModel):
     env_vars: Dict[str, str]
     ai_configs: Dict[str, Any]
     freshness_score: float
+    freshness_analysis: List[Dict[str, Any]] = Field(default_factory=list)
+    system_info: Dict[str, Any] = Field(default_factory=dict)
+    version_managers: Dict[str, Optional[str]] = Field(default_factory=dict)
     performance: Dict[str, Any]
     success: bool = True
     errors: List[Dict[str, str]] = Field(default_factory=list)
 
-    from pydantic import field_validator
-    
     @field_validator("timestamp")
     @classmethod
     def validate_timestamp(cls, v: str) -> str:

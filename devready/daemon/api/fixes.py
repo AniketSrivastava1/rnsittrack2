@@ -1,45 +1,126 @@
-"""API endpoints for environment fixes."""
+"""Fix recommendation and application endpoints."""
 from __future__ import annotations
 
+import os
+import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 
 from devready.daemon.database import get_session
-from devready.daemon.models import PolicyViolation, TeamPolicy
-from devready.daemon.services.fixer_service import FixerService, FixRecommendation, FixResult
-from devready.daemon.services.snapshot_service import SnapshotService
-from devready.daemon.services.drift_service import DriftDetectionService
+from devready.daemon.db_operations import get_latest_snapshot, get_snapshot_by_id
+from devready.daemon.models import (
+    FixApplyRequest,
+    FixApplyResponse,
+    FixRecommendation,
+    FixResult,
+    PolicyViolation,
+)
 
-router = APIRouter(prefix="/api/v1/fixes", tags=["fixes"])
-_snapshot_svc = SnapshotService()
-_drift_svc = DriftDetectionService()
-_fixer_svc = FixerService()
+router = APIRouter(prefix="/api/v1", tags=["fixes"])
+
+_pending_fixes: dict[str, FixRecommendation] = {}
+_TIME_ESTIMATES = {"missing_tool": 30, "version_mismatch": 20, "missing_env_var": 25, "forbidden_tool": 10}
 
 
-class FixRecommendationRequest(BaseModel):
-    snapshot_id: str
-    team_policy: Optional[TeamPolicy] = None
+def _violation_to_fix(v: PolicyViolation, project_path: str = "") -> FixRecommendation:
+    from devready.operator.fix_parser import FixParser
+
+    # System-level tools managed by mise, not package managers
+    _SYSTEM_TOOLS = {
+        "node", "python", "python3", "go", "rust", "rustc", "java", "ruby",
+        "git", "docker", "kubectl", "terraform", "aws", "gcloud", "az",
+    }
+
+    raw_cmd = None
+
+    # Only use PackageManagerRegistry for non-system-tool package violations
+    if v.tool_or_var_name.lower() not in _SYSTEM_TOOLS and v.violation_type in ("missing_tool", "version_mismatch"):
+        from devready.operator.package_managers import registry
+        for stack in ("python", "nodejs", "rust", "go", "java"):
+            adapter = registry.detect_package_manager(stack, project_path) if project_path else None
+            if adapter:
+                try:
+                    raw_cmd = " ".join(adapter.generate_fix_command("install", v.tool_or_var_name, v.expected))
+                    break
+                except Exception:
+                    pass
+
+    if not raw_cmd:
+        fallback = {
+            "missing_tool": f"mise install {v.tool_or_var_name}" + (f"@{v.expected}" if v.expected else ""),
+            "version_mismatch": f"mise use {v.tool_or_var_name}@{v.expected or 'latest'}",
+            "forbidden_tool": f"# Remove {v.tool_or_var_name} from your environment",
+            "missing_env_var": f"export {v.tool_or_var_name}=<value>",
+        }
+        raw_cmd = fallback.get(v.violation_type)
+
+    parsed = FixParser().parse_command(raw_cmd) if raw_cmd else {}
+    return FixRecommendation(
+        fix_id=str(uuid.uuid4()),
+        issue_description=v.message,
+        command=raw_cmd,
+        manual_steps=parsed.get("action") if parsed else None,
+        confidence="high" if v.violation_type in ("missing_tool", "version_mismatch") else "medium",
+        estimated_minutes=_TIME_ESTIMATES.get(v.violation_type, 15),
+        affects_global=v.violation_type in ("missing_tool", "version_mismatch"),
+        violation=v,
+    )
 
 
-@router.post("/recommendations", response_model=List[FixRecommendation])
-async def get_recommendations(
-    req: FixRecommendationRequest,
+@router.get("/fixes", response_model=List[FixRecommendation])
+async def get_fix_recommendations(
+    project_path: Optional[str] = Query(None),
+    snapshot_id: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session),
 ) -> List[FixRecommendation]:
-    """Provides recommendations for fixing policy violations in a snapshot."""
-    snap = await _snapshot_svc.get_snapshot(session, req.snapshot_id)
+    if snapshot_id:
+        snap = await get_snapshot_by_id(session, snapshot_id)
+    elif project_path:
+        snap = await get_latest_snapshot(session, project_path)
+    else:
+        raise HTTPException(status_code=422, detail={
+            "error_code": "MISSING_PARAM", "message": "Provide project_path or snapshot_id", "details": {}})
     if snap is None:
         raise HTTPException(status_code=404, detail={
             "error_code": "SNAPSHOT_NOT_FOUND", "message": "No snapshot found", "details": {}})
-    if not req.team_policy:
-        return []
-    violations = _drift_svc.check_policy_compliance(snap, req.team_policy)
-    return _fixer_svc.get_recommendations(violations)
+
+    violations = []
+    for v in (getattr(snap, "policy_violations", None) or []):
+        try:
+            violations.append(PolicyViolation(**v))
+        except Exception:
+            continue
+
+    fixes = [_violation_to_fix(v, snap.project_path) for v in violations]
+    for fix in fixes:
+        _pending_fixes[fix.fix_id] = fix
+    return fixes
 
 
-@router.post("/apply", response_model=FixResult)
-async def apply_fix(recommendation: FixRecommendation) -> FixResult:
-    """Applies a specific fix recommendation."""
-    return await _fixer_svc.apply_fix(recommendation)
+@router.post("/fixes/apply", response_model=FixApplyResponse)
+async def apply_fixes(req: FixApplyRequest) -> FixApplyResponse:
+    import asyncio
+    fixes_to_apply = []
+    results: List[FixResult] = []
+
+    for fix_id in req.fix_ids:
+        fix = _pending_fixes.get(fix_id)
+        if fix is None:
+            results.append(FixResult(fix_id=fix_id, success=False, message="Fix not found or expired"))
+        else:
+            fixes_to_apply.append(fix)
+
+    if fixes_to_apply:
+        project_root = os.getcwd()
+        from devready.operator.orchestrator import FixOrchestrator
+        orchestrator = FixOrchestrator(project_root)
+        fix_dicts = [{"fix_id": f.fix_id, "command": f.command} for f in fixes_to_apply]
+        loop = asyncio.get_event_loop()
+        operator_results = await loop.run_in_executor(
+            None, lambda: orchestrator.run(fix_dicts, dry_run=req.dry_run)
+        )
+        results.extend([FixResult(**r) for r in operator_results])
+
+    return FixApplyResponse(results=results)

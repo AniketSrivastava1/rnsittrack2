@@ -179,8 +179,38 @@ async def drift(
         project_path = project or os.getcwd()
 
         if policy:
-            # Policy drift logic would go here
-            context.formatter.print_error("Policy drift not yet implemented.")
+            snapshot = await context.client.get_latest_snapshot(project_path)
+            if not snapshot:
+                context.formatter.print_error("No snapshots found. Run 'devready scan' first.")
+                return
+            snapshot_id = snapshot.get("snapshot_id", snapshot.get("id"))
+            # Load policy from .devready.yml
+            try:
+                from devready.lens.contract import load_contract, contract_to_team_policy
+                team_policy = contract_to_team_policy(load_contract(project_path)).model_dump()
+            except Exception:
+                context.formatter.print_error("No .devready.yml found in project. Cannot check policy drift.")
+                return
+            report = await context.client._request(
+                "POST", "/api/v1/drift/policy",
+                json={"snapshot_id": snapshot_id, "team_policy": team_policy}
+            )
+            if context.json_output:
+                import json
+                print(json.dumps(report))
+                return
+            violations = report if isinstance(report, list) else report.get("violations", [])
+            if not violations:
+                context.formatter.console.print("[green]No policy violations detected.[/green]")
+            else:
+                from rich.table import Table
+                table = Table(title="Policy Violations")
+                table.add_column("Type", style="yellow")
+                table.add_column("Tool/Var", style="cyan")
+                table.add_column("Message", style="white")
+                for v in violations:
+                    table.add_row(v.get("violation_type", ""), v.get("tool_or_var_name", ""), v.get("message", ""))
+                context.formatter.console.print(table)
             return
 
         # Get current and baseline snapshots
@@ -304,18 +334,26 @@ async def team_status(ctx: typer.Context):
 @team_app.command("sync")
 @coro
 async def team_sync(ctx: typer.Context):
-    """Sync current environment snapshot with the team."""
+    """Export current environment snapshot to ~/.devready/exports/ for team sharing."""
     context = ctx.parent.obj
     try:
-        if not typer.confirm("This will upload your environment metadata to the team repository. Proceed?"):
-            return
+        import json
+        from pathlib import Path
 
-        with context.formatter.show_progress("Syncing with team...") as progress:
-            progress.add_task(description="Syncing...", total=None)
+        export_dir = Path.home() / ".devready" / "exports"
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        with context.formatter.show_progress("Scanning environment...") as progress:
+            progress.add_task(description="Scanning...", total=None)
             result = await context.client.scan(project_path=os.getcwd())
-            context.formatter.console.print(
-                f"[green]Snapshot {result['snapshot_id']} synced.[/green]"
-            )
+
+        snapshot_id = result["snapshot_id"]
+        export_path = export_dir / f"{snapshot_id}.json"
+        export_path.write_text(json.dumps(result, indent=2, default=str))
+        context.formatter.console.print(
+            f"[green]Snapshot exported to {export_path}[/green]\n"
+            "[dim]Share this file with your team manually (no remote sync configured).[/dim]"
+        )
     except DaemonError as e:
         context.formatter.print_error(str(e))
 
@@ -365,20 +403,67 @@ async def doctor(ctx: typer.Context):
     """Run diagnostics on DevReady installation."""
     context = ctx.obj
     context.formatter.console.print("[bold]Running DevReady Diagnostics...[/bold]\n")
-    
+
+    async def check_daemon():
+        return await context.client.check_daemon_health()
+
+    async def check_db():
+        try:
+            await context.client._request("GET", "/api/v1/metrics")
+            return True
+        except Exception:
+            return False
+
+    async def check_inspector():
+        try:
+            from devready.inspector.scan_orchestrator import ScanOrchestrator
+            ScanOrchestrator()
+            return True
+        except Exception:
+            return False
+
+    async def check_operator():
+        try:
+            from devready.operator.orchestrator import FixOrchestrator
+            FixOrchestrator(os.getcwd())
+            return True
+        except Exception:
+            return False
+
+    def check_contract():
+        try:
+            from devready.lens.contract import load_contract
+            load_contract(os.getcwd())
+            return True
+        except FileNotFoundError:
+            return None  # not an error, just absent
+        except Exception:
+            return False
+
     checks = [
-        ("Daemon connectivity", context.client.check_daemon_health),
-        # Add more checks here
+        ("Daemon connectivity", check_daemon),
+        ("Database / metrics endpoint", check_db),
+        ("Inspector (ScanOrchestrator)", check_inspector),
+        ("Operator (FixOrchestrator)", check_operator),
     ]
-    
+
     all_pass = True
     for name, check_fn in checks:
-        passed = await check_fn() if asyncio.iscoroutinefunction(check_fn) else check_fn()
+        passed = await check_fn()
         status_text = "[green]PASS[/green]" if passed else "[red]FAIL[/red]"
-        context.formatter.console.print(f"  {name:.<30} {status_text}")
+        context.formatter.console.print(f"  {name:.<40} {status_text}")
         if not passed:
             all_pass = False
-            
+
+    # Contract check is advisory
+    contract_result = check_contract()
+    if contract_result is True:
+        context.formatter.console.print(f"  {'Contract (.devready.yml)':.<40} [green]FOUND[/green]")
+    elif contract_result is None:
+        context.formatter.console.print(f"  {'Contract (.devready.yml)':.<40} [yellow]NOT FOUND[/yellow] (optional)")
+    else:
+        context.formatter.console.print(f"  {'Contract (.devready.yml)':.<40} [red]INVALID[/red]")
+
     if all_pass:
         context.formatter.console.print("\n[bold green]Environment looks healthy![/bold green]")
     else:
@@ -420,6 +505,64 @@ async def snapshot_delete(ctx: typer.Context, snapshot_id: str):
         context.formatter.console.print("[green]Snapshot deleted.[/green]")
     except DaemonError as e:
         context.formatter.print_error(str(e))
+
+@app.command()
+@coro
+async def init(
+    ctx: typer.Context,
+    project: Optional[str] = typer.Option(None, "--project", help="Project path (defaults to cwd)"),
+    mise: bool = typer.Option(True, "--mise/--no-mise", help="Generate mise.toml"),
+    devcontainer: bool = typer.Option(False, "--devcontainer", help="Generate .devcontainer/devcontainer.json"),
+):
+    """Generate environment config files (mise.toml, devcontainer.json) for this project."""
+    context = ctx.obj
+    project_path = project or os.getcwd()
+    try:
+        result = await context.client.scan(project_path=project_path, scope="full")
+        tools = {t["name"]: t["version"] for t in result.get("tools", [])}
+        tech_stack = result.get("tech_stack", ["unknown"])
+        # Normalize: StackDetector returns "Python"/"Node.js", generators expect "python"/"nodejs"
+        _stack_map = {"node.js": "nodejs", "python": "python", "go": "go", "rust": "rust", "java": "java"}
+        raw_stack = (tech_stack[0] if tech_stack else "unknown").lower().replace(".", "")
+        stack = _stack_map.get(raw_stack, raw_stack)
+        requirements = {"tools": tools, "tech_stack": stack}
+
+        if mise:
+            from devready.operator.mise_generator import MiseGenerator
+            path = MiseGenerator().generate_isolation_config(project_path, requirements)
+            context.formatter.console.print(f"[green]Generated {path}[/green]")
+
+        if devcontainer:
+            from devready.operator.devcontainer_generator import DevcontainerGenerator
+            path = DevcontainerGenerator().generate_isolation_config(project_path, requirements)
+            context.formatter.console.print(f"[green]Generated {path}[/green]")
+
+    except DaemonError as e:
+        context.formatter.print_error(str(e))
+        sys.exit(1)
+
+
+# --- Hooks Commands ---
+hooks_app = typer.Typer(help="Manage git hooks for automatic environment checks")
+app.add_typer(hooks_app, name="hooks")
+
+@hooks_app.command("install")
+def hooks_install(
+    project: Optional[str] = typer.Option(None, "--project", help="Project path (defaults to cwd)"),
+    pre_commit: bool = typer.Option(True, "--pre-commit/--no-pre-commit", help="Install pre-commit hook"),
+    post_merge: bool = typer.Option(True, "--post-merge/--no-post-merge", help="Install post-merge hook"),
+):
+    """Install DevReady git hooks into the current project."""
+    from devready.operator.hook_manager import HookManager
+    project_path = project or os.getcwd()
+    hm = HookManager(project_path)
+    if pre_commit:
+        ok = hm.install_pre_commit_hook()
+        typer.echo(f"pre-commit hook: {'installed' if ok else 'failed'}")
+    if post_merge:
+        ok = hm.install_post_merge_hook()
+        typer.echo(f"post-merge hook: {'installed' if ok else 'failed'}")
+
 
 # --- Daemon Commands ---
 daemon_app = typer.Typer(help="Control the background daemon process")

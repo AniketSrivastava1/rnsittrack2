@@ -4,10 +4,14 @@ import threading
 from typing import Dict, Any, List
 from python_on_whales import Container
 from python_on_whales.exceptions import DockerException
+from devready.operator.resource_cleaner import ResourceCleaner
 
 logger = logging.getLogger(__name__)
 
 class SandboxExecutor:
+    def __init__(self):
+        self.cleaner = ResourceCleaner()
+
     def execute_in_sandbox(self, container: Container, command: List[str], timeout: int = 60) -> Dict[str, Any]:
         """
         Execute a fix command inside the provided container.
@@ -47,7 +51,7 @@ class SandboxExecutor:
         if thread.is_alive():
             logger.warning(f"Command {command} timed out after {timeout} seconds, terminating container.")
             result["timed_out"] = True
-            result["exit_code"] = 124  # Standard timeout exit code
+            result["exit_code"] = 124
             try:
                 container.kill()
             except Exception as e:
@@ -55,6 +59,12 @@ class SandboxExecutor:
         else:
             if result["exit_code"] == 0:
                 result["verified"] = True
+
+        # Always clean up the container
+        try:
+            self.cleaner.cleanup_sandbox(container.id)
+        except Exception:
+            pass
                 
         logger.debug(f"Execution finished. Verified: {result['verified']}, Exit code: {result['exit_code']}, Duration: {duration:.2f}s")
         return result

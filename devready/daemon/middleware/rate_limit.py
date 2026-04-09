@@ -1,4 +1,4 @@
-"""Rate limiting middleware."""
+"""Rate limiting middleware — in-memory sliding window per client IP."""
 from __future__ import annotations
 
 import time
@@ -9,6 +9,9 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Endpoints exempt from rate limiting
+_EXEMPT = {"/api/version", "/api/docs", "/api/redoc", "/openapi.json"}
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, max_requests: int = 100, window_seconds: int = 60) -> None:
@@ -18,18 +21,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._clients: Dict[str, Deque[float]] = defaultdict(deque)
 
     async def dispatch(self, request: Request, call_next):
+        if request.url.path in _EXEMPT:
+            return await call_next(request)
+
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
         window = self._clients[client_ip]
 
-        # Remove old entries outside the window
         while window and window[0] < now - self.window_seconds:
             window.popleft()
 
         if len(window) >= self.max_requests:
+            retry_after = int(self.window_seconds - (now - window[0])) + 1
             return JSONResponse(
                 status_code=429,
-                content={"error_code": "RATE_LIMIT_EXCEEDED", "message": "Too many requests", "details": {}},
+                headers={"Retry-After": str(retry_after)},
+                content={"error_code": "RATE_LIMIT_EXCEEDED",
+                         "message": "Too many requests",
+                         "details": {"retry_after_seconds": retry_after}},
             )
 
         window.append(now)

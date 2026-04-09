@@ -1,4 +1,5 @@
 import logging
+import os
 import datetime
 from typing import Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
@@ -7,7 +8,6 @@ from devready.inspector.system_scanner import SystemScanner
 from devready.inspector.dependency_scanner import DependencyScanner
 from devready.inspector.tool_detector import ToolDetector
 from devready.inspector.ai_parser import AIParser
-from devready.inspector.root_detector import RootDetector
 from devready.inspector.stack_detector import StackDetector
 from devready.inspector.env_collector import EnvCollector
 from devready.inspector.cache_manager import CacheManager
@@ -19,6 +19,9 @@ from devready.inspector.result_validator import ResultValidator
 
 logger = logging.getLogger(__name__)
 
+# Module-level cache shared across all ScanOrchestrator instances
+_scan_cache = CacheManager()
+
 class ScanOrchestrator:
     """Orchestrates all scanners to produce a complete environment snapshot."""
 
@@ -27,10 +30,9 @@ class ScanOrchestrator:
         self.dependency_scanner = DependencyScanner()
         self.tool_detector = ToolDetector()
         self.ai_parser = AIParser()
-        self.root_detector = RootDetector()
         self.stack_detector = StackDetector()
         self.env_collector = EnvCollector()
-        self.cache_manager = CacheManager()
+        self.cache_manager = _scan_cache  # shared module-level cache
         self.performance_monitor = PerformanceMonitor()
         self.policy_checker = PolicyChecker()
         self.freshness_analyzer = FreshnessAnalyzer()
@@ -48,12 +50,20 @@ class ScanOrchestrator:
         """
         self.performance_monitor.start_total_timer()
         
-        # 1. Detect project root if not provided
+        # 1. Detect project root — use ContextDetector (same as SnapshotService) for consistency
         with self.performance_monitor.measure("root_detection", budget_seconds=0.1):
-            root = project_path or self.root_detector.detect()
+            from devready.daemon.context import ContextDetector
+            root, project_name = ContextDetector().detect(project_path or None)
             if not root:
-                root = "."
-            project_name = self.root_detector.get_project_name(root)
+                root = project_path or "."
+                project_name = os.path.basename(root)
+
+        # Check cache first (TTL: 60s, keyed by root+scope)
+        cache_key = f"{root}:{scan_scope}"
+        if not force_refresh:
+            cached = self.cache_manager.get(cache_key)
+            if cached is not None:
+                return cached
 
         # 2. Parallel scan setup
         results = {}
@@ -96,7 +106,7 @@ class ScanOrchestrator:
             dep_res = futures["dependencies"].result() if "dependencies" in futures else {"dependencies": []}
 
         # 3. Post-processing
-        freshness = {"freshness_score": 100.0}
+        freshness = {"freshness_score": 100.0, "analysis": []}
         if run_deps:
             with self.performance_monitor.measure("freshness_analysis"):
                 freshness = self.freshness_analyzer.analyze(dep_res.get("dependencies", []))
@@ -109,9 +119,12 @@ class ScanOrchestrator:
             "tech_stack": stack_info,
             "tools": tool_info.get("tools", {}),
             "dependencies": dep_res.get("dependencies", []),
-            "env_vars": self.env_collector.get_filtered_env(env_info),
+            "env_vars": self.env_collector.get_filtered_env(env_info, root),
             "ai_configs": ai_info,
+            "system_info": sys_info.get("os_info", {}) if sys_info else {},
+            "version_managers": tool_info.get("version_managers", {}) if tool_info else {},
             "freshness_score": freshness.get("freshness_score", 100.0),
+            "freshness_analysis": freshness.get("analysis", []),
             "performance": self.performance_monitor.get_summary(),
             "success": not self.error_handler.has_errors(),
             "errors": self.error_handler.get_errors()
@@ -120,7 +133,21 @@ class ScanOrchestrator:
         # 5. Validate
         try:
             validated_snapshot = self.validator.validate(snapshot_data)
-            return validated_snapshot.model_dump()
+            result = validated_snapshot.model_dump()
         except Exception:
-            # Return raw data if validation fails but we still want to see results
-            return snapshot_data
+            result = snapshot_data
+
+        # 6. Run policy check if .devready.yml exists
+        try:
+            from devready.lens.contract import load_contract
+            contract = load_contract(root)
+            policy_dict = {
+                "required_tools": {t.name: t.min_version for t in contract.required_tools},
+                "forbidden_tools": contract.forbidden_tools,
+            }
+            result["policy_violations_inspector"] = self.policy_checker.check(policy_dict, result)
+        except Exception:
+            pass
+
+        self.cache_manager.set(cache_key, result, ttl_seconds=60)
+        return result

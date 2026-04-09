@@ -18,7 +18,7 @@ def test_get_recommendations_missing_tool(fixer_service):
     recs = fixer_service.get_recommendations([violation])
     assert len(recs) == 1
     assert recs[0].strategy == "install_tool"
-    assert "nvm install node" in recs[0].command
+    assert "mise install node" in recs[0].command
 
 def test_get_recommendations_version_mismatch(fixer_service):
     violation = PolicyViolation(
@@ -32,7 +32,7 @@ def test_get_recommendations_version_mismatch(fixer_service):
     recs = fixer_service.get_recommendations([violation])
     assert len(recs) == 1
     assert recs[0].strategy == "update_tool"
-    assert "nvm install 20.0.0" in recs[0].command
+    assert "mise use node@20.0.0" in recs[0].command
 
 @pytest.mark.asyncio
 async def test_apply_fix_success(fixer_service):

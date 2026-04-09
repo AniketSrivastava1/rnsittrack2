@@ -40,14 +40,21 @@ class SnapshotService:
             env_vars=req.env_vars,
             health_score=0,
             scan_duration_seconds=req.scan_duration_seconds,
+            freshness_score=req.freshness_score,
+            ai_configs=req.ai_configs,
         )
 
-        # Generate violations from policy if provided
-        violations = (
-            _drift_svc.check_policy_compliance(temp_snap, req.team_policy)
-            if req.team_policy else
-            [v for v in req.policy_violations]  # use caller-supplied if no policy
-        )
+        # Generate violations from policy if provided, then merge with any caller-supplied ones
+        if req.team_policy:
+            policy_violations = _drift_svc.check_policy_compliance(temp_snap, req.team_policy)
+            # Merge: add caller-supplied violations not already covered by policy check
+            existing_keys = {(v.violation_type, v.tool_or_var_name) for v in policy_violations}
+            for v in req.policy_violations:
+                if (v.violation_type, v.tool_or_var_name) not in existing_keys:
+                    policy_violations.append(v)
+            violations = policy_violations
+        else:
+            violations = list(req.policy_violations)
 
         health_score = _health_calc.calculate_score(temp_snap, req.team_policy)
 
@@ -59,6 +66,8 @@ class SnapshotService:
             env_vars=req.env_vars,
             health_score=health_score,
             scan_duration_seconds=req.scan_duration_seconds,
+            freshness_score=req.freshness_score,
+            ai_configs=req.ai_configs,
             policy_violations=[v.model_dump() for v in violations],
         )
         return await insert_snapshot(session, snapshot)

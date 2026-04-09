@@ -1,28 +1,17 @@
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, DataTable, Label, ProgressBar
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container
 from textual.reactive import reactive
 from textual import work
 import os
 import asyncio
 import json
 import websockets
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, Any
 
 from .daemon_client import DaemonClient, DaemonError
+from devready.lens.widgets import HealthTrendWidget, TopIssuesWidget, TimeSavedWidget, ComplianceWidget
 
-class HealthWidget(Static):
-    """Widget to display the health score."""
-    score = reactive(0)
-    
-    def render(self) -> str:
-        if self.score >= 90:
-            color, emoji = "green", "✅"
-        elif self.score >= 70:
-            color, emoji = "yellow", "⚠️"
-        else:
-            color, emoji = "red", "❌"
-        return f"{emoji} Health Score: [#ffffff on {color}]{self.score}/100[/]"
 
 class DevReadyDashboard(App):
     """Interactive DevReady dashboard."""
@@ -79,7 +68,14 @@ class DevReadyDashboard(App):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Container(id="main-container"):
-            yield HealthWidget(id="health-score")
+            yield HealthTrendWidget(daemon_url=self.daemon_client.base_url,
+                                    project_path=self.project_path, id="health-trend")
+            yield TopIssuesWidget(daemon_url=self.daemon_client.base_url,
+                                  project_path=self.project_path, id="top-issues")
+            yield TimeSavedWidget(daemon_url=self.daemon_client.base_url,
+                                  project_path=self.project_path, id="time-saved")
+            yield ComplianceWidget(daemon_url=self.daemon_client.base_url,
+                                   project_path=self.project_path, id="compliance")
             yield DataTable(id="tools-table")
             yield ProgressBar(id="scan-progress", show_eta=False, total=100)
             yield Label("", id="status-line")
@@ -96,20 +92,18 @@ class DevReadyDashboard(App):
     @work(exclusive=True)
     async def refresh_data(self):
         """Fetch latest state from daemon."""
-        self.query_one("#status-line", Label).update("Refreshing data...")
+        self._set_status("Refreshing data...")
         try:
             snapshot = await self.daemon_client.get_latest_snapshot(self.project_path)
             if snapshot:
                 self.update_ui(snapshot)
-            self.query_one("#status-line", Label).update("Ready")
+            self._set_status("Ready")
         except DaemonError as e:
-            self.query_one("#status-line", Label).update(f"Error: {e}")
+            self._set_status(f"Error: {e}")
 
     def update_ui(self, snapshot: Dict[str, Any]):
         """Update dashboard widgets with snapshot data."""
         self.health_score = snapshot.get("health_score", 0)
-        self.query_one("#health-score", HealthWidget).score = self.health_score
-        
         table = self.query_one("#tools-table", DataTable)
         table.clear()
         for tool in snapshot.get("tools", []):
@@ -124,36 +118,59 @@ class DevReadyDashboard(App):
     @work
     async def listen_to_daemon(self):
         """Listen for real-time updates via WebSocket."""
-        # Using a hypothetical WebSocket URL based on base_url
         ws_url = self.daemon_client.base_url.replace("http", "ws") + f"/ws/scan?project_path={self.project_path}"
         while True:
             try:
                 async with websockets.connect(ws_url) as websocket:
-                    self.query_one("#status-line", Label).update("Connected to daemon")
+                    self._set_status("Connected to daemon")
                     async for message in websocket:
                         data = json.loads(message)
-                        if data["type"] == "scan_progress":
-                            self.query_one("#scan-progress", ProgressBar).update(progress=data["progress"])
-                        elif data["type"] == "scan_complete":
+                        if data.get("event") == "scan_started":
+                            self.query_one("#scan-progress", ProgressBar).update(progress=0)
+                            self._set_status("Scanning...")
+                        elif data.get("event") == "scan_complete":
                             self.refresh_data()
             except Exception:
-                self.query_one("#status-line", Label).update("Reconnecting to daemon...")
+                self._set_status("Reconnecting to daemon...")
                 await asyncio.sleep(5)
+
+    def _set_status(self, msg: str) -> None:
+        try:
+            self.query_one("#status-line", Label).update(msg)
+        except Exception:
+            pass
 
     def action_refresh(self):
         self.refresh_data()
     
     async def action_scan(self):
         self.scanning = True
-        self.query_one("#status-line", Label).update("Scanning...")
+        self._set_status("Scanning...")
         try:
             await self.daemon_client.scan(project_path=self.project_path)
-            # Scan result will come via WebSocket or we'll refresh later
         except DaemonError as e:
-            self.query_one("#status-line", Label).update(f"Scan failed: {e}")
+            self._set_status(f"Scan failed: {e}")
         finally:
             self.scanning = False
 
     def action_fix(self):
-        # Implementation for fix action...
-        pass
+        self.run_worker(self._apply_fixes(), exclusive=True)
+
+    async def _apply_fixes(self):
+        self.query_one("#status-line", Label).update("Fetching fixes...")
+        try:
+            snapshot = await self.daemon_client.get_latest_snapshot(self.project_path)
+            if not snapshot:
+                self.query_one("#status-line", Label).update("No snapshot found — run a scan first.")
+                return
+            fixes = await self.daemon_client.get_fix_recommendations(
+                snapshot_id=snapshot.get("snapshot_id")
+            )
+            if not fixes:
+                self.query_one("#status-line", Label).update("No fixes needed.")
+                return
+            fix_ids = [f["fix_id"] for f in fixes]
+            await self.daemon_client.apply_fixes(fix_ids=fix_ids, dry_run=True)
+            self.query_one("#status-line", Label).update(f"Dry-run complete for {len(fix_ids)} fix(es).")
+        except DaemonError as e:
+            self.query_one("#status-line", Label).update(f"Fix error: {e}")

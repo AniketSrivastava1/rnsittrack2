@@ -18,7 +18,13 @@ def _sparkline(scores: list) -> str:
 
 
 class _LensWidget(Widget):
-    DEFAULT_CSS = "height: auto; border: solid $accent; padding: 0 1;"
+    DEFAULT_CSS = """
+    _LensWidget {
+        height: auto;
+        border: solid $accent;
+        padding: 0 1;
+    }
+    """
 
     def __init__(self, daemon_url: str = "http://localhost:8443",
                  project_path: Optional[str] = None, **kwargs):
