@@ -1,18 +1,55 @@
 import * as http from 'http';
 
+export interface PolicyViolation {
+    violation_type: string;
+    tool_or_var_name: string;
+    severity: string;
+    message: string;
+    expected?: string;
+    actual?: string;
+}
+
 export interface FixRecommendation {
-    violation: any;
-    strategy: string;
+    fix_id: string;
+    violation: PolicyViolation;
+    issue_description: string;
     command?: string;
-    description: string;
-    risk_level: string;
+    manual_steps?: string;
+    confidence: string;
+    estimated_minutes: number;
+    affects_global: boolean;
+    // Legacy fields retained for backward compat
+    strategy?: string;
+    description?: string;
+    risk_level?: string;
 }
 
 export class ArchitectClient {
     constructor(private baseUrl: string) {}
 
-    public async scan(projectPath: string, scope: string = 'full'): Promise<any> {
-        return this.post('/api/v1/scan', { project_path: projectPath, scope });
+    /** Trigger a scan. Passes team_policy if provided so AI drift is checked. */
+    public async scan(
+        projectPath: string,
+        scope: string = 'full',
+        teamPolicy?: Record<string, any> | null
+    ): Promise<any> {
+        const payload: Record<string, any> = { project_path: projectPath, scope };
+        if (teamPolicy) {
+            payload.team_policy = teamPolicy;
+        }
+        return this.post('/api/v1/scan', payload);
+    }
+
+    /** Load the .devready-team.yaml for a project (parsed server-side). */
+    public async getTeamPolicy(projectPath: string): Promise<Record<string, any> | null> {
+        try {
+            const result = await this.get(
+                `/api/v1/team-policy?project_path=${encodeURIComponent(projectPath)}`
+            );
+            return result && Object.keys(result).length > 0 ? result : null;
+        } catch {
+            return null;
+        }
     }
 
     public async getLatestSnapshot(projectPath: string): Promise<any> {
@@ -24,17 +61,13 @@ export class ArchitectClient {
     }
 
     public async applyFix(recommendation: FixRecommendation): Promise<any> {
-        return this.post('/api/v1/fixes/apply', recommendation);
+        return this.post('/api/v1/fixes/apply', { fix_ids: [recommendation.fix_id] });
     }
 
     private get(path: string): Promise<any> {
         return new Promise((resolve, reject) => {
             const url = new URL(path, this.baseUrl);
-            const options = {
-                method: 'GET',
-            };
-
-            const req = http.request(url, options, (res) => {
+            const req = http.request(url, { method: 'GET' }, (res) => {
                 let body = '';
                 res.on('data', (chunk) => body += chunk);
                 res.on('end', () => {
@@ -47,7 +80,6 @@ export class ArchitectClient {
                     }
                 });
             });
-
             req.on('error', (err) => reject(err));
             req.end();
         });
