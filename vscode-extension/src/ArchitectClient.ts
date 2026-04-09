@@ -19,11 +19,6 @@ export class ArchitectClient {
         return this.get(`/api/v1/snapshots/latest?project_path=${encodeURIComponent(projectPath)}`);
     }
 
-    public async getSnapshotHistory(projectPath: string, limit: number = 20): Promise<any[]> {
-        const result = await this.get(`/api/v1/snapshots/history?project_path=${encodeURIComponent(projectPath)}&limit=${limit}&days=365`);
-        return Array.isArray(result) ? result : [];
-    }
-
     public async getVisualizationHtml(snapshotId: string): Promise<string> {
         const url = new URL(`/api/v1/visualize/dependencies/${snapshotId}`, this.baseUrl);
         return new Promise((resolve, reject) => {
