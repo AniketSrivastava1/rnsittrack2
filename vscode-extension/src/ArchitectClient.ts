@@ -46,7 +46,6 @@ export class ArchitectClient {
     public async getFixRecommendations(snapshotId: string, _policy: any): Promise<FixRecommendation[]> {
         return this.get(`/api/v1/fixes?snapshot_id=${encodeURIComponent(snapshotId)}`);
     }
-    }
 
     public async applyFix(recommendation: FixRecommendation): Promise<any> {
         return this.post('/api/v1/fixes/apply', recommendation);
