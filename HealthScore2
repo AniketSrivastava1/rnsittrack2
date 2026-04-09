@@ -1,0 +1,106 @@
+#Alternative data collection for health score calculator using native Python libraries
+import os
+import re
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Dict, Optional
+
+app = FastAPI(
+    title="DevReady Shell Extraction API",
+    description="Extracts environment variables, aliases, and paths statically from Bash and Zsh configs without executing them."
+)
+
+class ShellData(BaseModel):
+    shell_type: str
+    config_file: str
+    exports: Dict[str, str]
+    aliases: Dict[str, str]
+    paths: List[str]
+
+def parse_shell_config(file_path: Path) -> dict:
+    """Statically parses a shell config file for exports, aliases, and paths."""
+    exports = {}
+    aliases = {}
+    paths = []
+    
+    if not file_path.exists():
+        return {"exports": exports, "aliases": aliases, "paths": paths}
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            
+        for line in lines:
+            line = line.strip()
+            # Ignore comments
+            if line.startswith("#") or not line:
+                continue
+                
+            # Match aliases: alias name="value" or alias name='value' or alias name=value
+            alias_match = re.match(r"^alias\s+([A-Za-z0-9_.-]+)=['\"]?(.*?)['\"]?$", line)
+            if alias_match:
+                aliases[alias_match.group(1)] = alias_match.group(2)
+                continue
+                
+            # Match exports: export NAME="value"
+            export_match = re.match(r"^export\s+([A-Za-z0-9_]+)=['\"]?(.*?)['\"]?$", line)
+            if export_match:
+                key, val = export_match.group(1), export_match.group(2)
+                # Check if it's the PATH variable specifically being modified
+                if key == "PATH":
+                    # Simple extraction: isolating appended directories and ignoring self-references like $PATH
+                    new_paths = [p for p in val.split(":") if not p.startswith("$")]
+                    paths.extend(new_paths)
+                else:
+                    exports[key] = val
+
+    except Exception as e:
+        print(f"Error parsing {file_path}: {e}")
+        
+    return {"exports": exports, "aliases": aliases, "paths": paths}
+
+@app.get("/api/shell/extract", response_model=List[ShellData])
+def extract_shell_data(shell: Optional[str] = None):
+    """
+    Extracts shell data statically. 
+    You can query a specific shell (bash or zsh) or all supported shells.
+    """
+    home_dir = Path.home()
+    
+    # Map of shell types to their standard configuration files
+    configs_to_check = {
+        "bash": [".bashrc", ".bash_profile", ".profile"],
+        "zsh": [".zshrc", ".zprofile"]
+    }
+    
+    results = []
+    
+    # If a specific shell is requested, only check that one. Otherwise, check all.
+    shells_to_process = [shell] if shell and shell in configs_to_check else configs_to_check.keys()
+    
+    for sh in shells_to_process:
+        for config_name in configs_to_check[sh]:
+            config_path = home_dir / config_name
+            if config_path.exists():
+                parsed_data = parse_shell_config(config_path)
+                
+                # Only return the data if the file actually contained relevant exports or aliases
+                if parsed_data["exports"] or parsed_data["aliases"] or parsed_data["paths"]:
+                    results.append(ShellData(
+                        shell_type=sh,
+                        config_file=str(config_path),
+                        exports=parsed_data["exports"],
+                        aliases=parsed_data["aliases"],
+                        paths=parsed_data["paths"]
+                    ))
+                
+    if not results:
+        raise HTTPException(status_code=404, detail="No valid shell configuration parameters found.")
+        
+    return results
+
+if __name__ == "__main__":
+    import uvicorn
+    # Run the API locally on port 8001
+    uvicorn.run("shell_api:app", host="127.0.0.1", port=8001, reload=True)
