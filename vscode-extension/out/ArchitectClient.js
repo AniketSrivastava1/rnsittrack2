@@ -45,6 +45,28 @@ class ArchitectClient {
     async getLatestSnapshot(projectPath) {
         return this.get(`/api/v1/snapshots/latest?project_path=${encodeURIComponent(projectPath)}`);
     }
+    async getVisualizationHtml(snapshotId) {
+        const url = new URL(`/api/v1/visualize/dependencies/${snapshotId}`, this.baseUrl);
+        return new Promise((resolve, reject) => {
+            const req = http.get(url, (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve(body));
+            });
+            req.on('error', (err) => reject(err));
+        });
+    }
+    async getTeamVisualizationHtml() {
+        const url = new URL(`/api/v1/visualize/team`, this.baseUrl);
+        return new Promise((resolve, reject) => {
+            const req = http.get(url, (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve(body));
+            });
+            req.on('error', (err) => reject(err));
+        });
+    }
     async getFixRecommendations(snapshotId, _policy) {
         return this.get(`/api/v1/fixes?snapshot_id=${encodeURIComponent(snapshotId)}`);
     }
