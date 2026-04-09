@@ -11,12 +11,16 @@ export interface FixRecommendation {
 export class ArchitectClient {
     constructor(private baseUrl: string) {}
 
+    public async scan(projectPath: string, scope: string = 'full'): Promise<any> {
+        return this.post('/api/v1/scan', { project_path: projectPath, scope });
+    }
+
     public async getLatestSnapshot(projectPath: string): Promise<any> {
         return this.get(`/api/v1/snapshots/latest?project_path=${encodeURIComponent(projectPath)}`);
     }
 
-    public async getFixRecommendations(snapshotId: string, policy: any): Promise<FixRecommendation[]> {
-        return this.post('/api/v1/fixes/recommendations', { snapshot_id: snapshotId, team_policy: policy });
+    public async getFixRecommendations(snapshotId: string, _policy: any): Promise<FixRecommendation[]> {
+        return this.get(`/api/v1/fixes?snapshot_id=${encodeURIComponent(snapshotId)}`);
     }
 
     public async applyFix(recommendation: FixRecommendation): Promise<any> {
@@ -52,27 +56,31 @@ export class ArchitectClient {
     private post(path: string, data: any): Promise<any> {
         return new Promise((resolve, reject) => {
             const url = new URL(path, this.baseUrl);
+            const body = JSON.stringify(data);
+            console.log('[DevReady] POST', url.href, body);
             const options = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(body),
                 }
             };
 
             const req = http.request(url, options, (res) => {
-                let body = '';
-                res.on('data', (chunk) => body += chunk);
+                let raw = '';
+                res.on('data', (chunk) => raw += chunk);
                 res.on('end', () => {
+                    console.log('[DevReady] POST', url.href, '->', res.statusCode, raw.slice(0, 200));
                     if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                        resolve(JSON.parse(body));
+                        resolve(JSON.parse(raw));
                     } else {
-                        reject(new Error(`API Error: ${res.statusCode} - ${body}`));
+                        reject(new Error(`API Error: ${res.statusCode} - ${raw}`));
                     }
                 });
             });
 
             req.on('error', (err) => reject(err));
-            req.write(JSON.stringify(data));
+            req.write(body);
             req.end();
         });
     }

@@ -39,15 +39,17 @@ const vscode = __importStar(require("vscode"));
 const DaemonManager_1 = require("./DaemonManager");
 const ArchitectClient_1 = require("./ArchitectClient");
 const DashboardView_1 = require("./DashboardView");
+const ProjectRegistry_1 = require("./ProjectRegistry");
 let daemonManager;
 async function activate(context) {
     console.log('DevReady extension is now active');
     daemonManager = new DaemonManager_1.DaemonManager();
     const architectClient = new ArchitectClient_1.ArchitectClient(daemonManager.getBaseUrl());
+    const registry = new ProjectRegistry_1.ProjectRegistry(context);
     // Start daemon on activation
     await daemonManager.start();
     // Register Dashboard Provider
-    const dashboardProvider = new DashboardView_1.DashboardViewProvider(context.extensionUri, architectClient);
+    const dashboardProvider = new DashboardView_1.DashboardViewProvider(context.extensionUri, architectClient, registry);
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(DashboardView_1.DashboardViewProvider.viewType, dashboardProvider));
     // Register Commands
     context.subscriptions.push(vscode.commands.registerCommand('devready.scan', async () => {

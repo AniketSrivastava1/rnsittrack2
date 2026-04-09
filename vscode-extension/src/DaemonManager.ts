@@ -13,12 +13,13 @@ export class DaemonManager {
     }
 
     public async start(): Promise<boolean> {
-        if (this.daemonProcess) {
-            this.outputChannel.appendLine("Daemon is already running.");
+        // If daemon already reachable, don't spawn a new one
+        if (await this.isReachable()) {
+            this.outputChannel.appendLine("Daemon already running, skipping spawn.");
             return true;
         }
 
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (!workspaceRoot) {
             vscode.window.showErrorMessage("DevReady: No workspace folder found.");
             return false;
@@ -77,5 +78,17 @@ export class DaemonManager {
 
     public getBaseUrl(): string {
         return `http://127.0.0.1:${this.port}`;
+    }
+
+    private isReachable(): Promise<boolean> {
+        return new Promise((resolve) => {
+            const req = require('http').request(
+                { hostname: '127.0.0.1', port: this.port, path: '/api/version', method: 'GET' },
+                (res: any) => { resolve(res.statusCode === 200); }
+            );
+            req.on('error', () => resolve(false));
+            req.setTimeout(1000, () => { req.destroy(); resolve(false); });
+            req.end();
+        });
     }
 }

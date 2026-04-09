@@ -36,9 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DashboardViewProvider = void 0;
 const vscode = __importStar(require("vscode"));
 class DashboardViewProvider {
-    constructor(_extensionUri, _client) {
+    constructor(_extensionUri, _client, _registry) {
         this._extensionUri = _extensionUri;
         this._client = _client;
+        this._registry = _registry;
     }
     resolveWebviewView(webviewView, _context, _token) {
         this._view = webviewView;
@@ -62,28 +63,29 @@ class DashboardViewProvider {
     async refresh() {
         if (!this._view)
             return;
+        const projectPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!projectPath) {
+            vscode.window.showErrorMessage('DevReady: No workspace folder open.');
+            return;
+        }
         try {
-            const projectPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath || "";
-            const snapshot = await this._client.getLatestSnapshot(projectPath);
-            if (!snapshot) {
-                this._view.webview.postMessage({
-                    type: 'update',
-                    snapshot: { health_score: '--' },
-                    recommendations: []
-                });
-                return;
-            }
-            // For now, use a dummy policy or fetch one
+            // Run the actual scan (same as `devready scan`)
+            const snapshot = await this._client.scan(projectPath);
+            // Persist to machine-wide registry
+            this._registry.upsert(snapshot);
             const policy = { required_tools: [], forbidden_tools: [], version_constraints: {}, env_var_requirements: [] };
             const recommendations = await this._client.getFixRecommendations(snapshot.snapshot_id, policy);
-            this._view.webview.postMessage({
-                type: 'update',
-                snapshot: snapshot,
-                recommendations: recommendations
-            });
+            this._view.webview.postMessage({ type: 'update', snapshot, recommendations });
         }
         catch (error) {
-            vscode.window.showErrorMessage(`DevReady: Refresh failed. ${error}`);
+            this._view.webview.postMessage({ type: 'update', snapshot: { health_score: '--' }, recommendations: [] });
+            const msg = error?.message ?? String(error);
+            if (msg.includes('ECONNREFUSED') || msg.includes('connect')) {
+                vscode.window.showErrorMessage('DevReady: Daemon not running. Start it with: uvicorn devready.daemon.main:app --host 127.0.0.1 --port 8443');
+            }
+            else {
+                vscode.window.showErrorMessage(`DevReady: Scan failed. ${msg}`);
+            }
         }
     }
     async applyFix(recommendation) {

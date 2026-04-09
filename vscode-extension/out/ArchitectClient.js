@@ -39,11 +39,14 @@ class ArchitectClient {
     constructor(baseUrl) {
         this.baseUrl = baseUrl;
     }
+    async scan(projectPath, scope = 'full') {
+        return this.post('/api/v1/scan', { project_path: projectPath, scope });
+    }
     async getLatestSnapshot(projectPath) {
         return this.get(`/api/v1/snapshots/latest?project_path=${encodeURIComponent(projectPath)}`);
     }
-    async getFixRecommendations(snapshotId, policy) {
-        return this.post('/api/v1/fixes/recommendations', { snapshot_id: snapshotId, team_policy: policy });
+    async getFixRecommendations(snapshotId, _policy) {
+        return this.get(`/api/v1/fixes?snapshot_id=${encodeURIComponent(snapshotId)}`);
     }
     async applyFix(recommendation) {
         return this.post('/api/v1/fixes/apply', recommendation);
@@ -76,26 +79,30 @@ class ArchitectClient {
     post(path, data) {
         return new Promise((resolve, reject) => {
             const url = new URL(path, this.baseUrl);
+            const body = JSON.stringify(data);
+            console.log('[DevReady] POST', url.href, body);
             const options = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(body),
                 }
             };
             const req = http.request(url, options, (res) => {
-                let body = '';
-                res.on('data', (chunk) => body += chunk);
+                let raw = '';
+                res.on('data', (chunk) => raw += chunk);
                 res.on('end', () => {
+                    console.log('[DevReady] POST', url.href, '->', res.statusCode, raw.slice(0, 200));
                     if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                        resolve(JSON.parse(body));
+                        resolve(JSON.parse(raw));
                     }
                     else {
-                        reject(new Error(`API Error: ${res.statusCode} - ${body}`));
+                        reject(new Error(`API Error: ${res.statusCode} - ${raw}`));
                     }
                 });
             });
             req.on('error', (err) => reject(err));
-            req.write(JSON.stringify(data));
+            req.write(body);
             req.end();
         });
     }
