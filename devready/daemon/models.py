@@ -31,6 +31,23 @@ class VersionChange(BaseModel):
     severity: Literal["major", "minor", "patch"]
 
 
+class DependencyNode(BaseModel):
+    id: str
+    name: str
+    version: str
+    type: str
+
+
+class DependencyLink(BaseModel):
+    source: str
+    target: str
+
+
+class DependencyGraph(BaseModel):
+    nodes: List[DependencyNode] = Field(default_factory=list)
+    links: List[DependencyLink] = Field(default_factory=list)
+
+
 class ToolRequirement(BaseModel):
     name: str
     min_version: Optional[str] = None
@@ -93,6 +110,7 @@ class EnvironmentSnapshot(SQLModel, table=True):
     freshness_score: float = SQLField(default=100.0)
     ai_configs: Dict[str, Any] = SQLField(default_factory=dict, sa_column=Column(JSON))
     policy_violations: List[Dict[str, Any]] = SQLField(default_factory=list, sa_column=Column(JSON))
+    dependency_graph: Dict[str, Any] = SQLField(default_factory=dict, sa_column=Column(JSON))
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +128,7 @@ class SnapshotCreateRequest(BaseModel):
     ai_configs: Dict[str, Any] = Field(default_factory=dict)
     team_policy: Optional[TeamPolicy] = None
     policy_violations: List[PolicyViolation] = Field(default_factory=list)
+    dependency_graph: Optional[DependencyGraph] = None
 
 
 class SnapshotResponse(BaseModel):
@@ -124,6 +143,7 @@ class SnapshotResponse(BaseModel):
     scan_duration_seconds: float
     freshness_score: float = 100.0
     policy_violations: List[PolicyViolation] = Field(default_factory=list)
+    dependency_graph: Optional[DependencyGraph] = None
     api_version: str = "v1"
 
 

@@ -77,6 +77,7 @@ async def scan_environment(
         ai_configs=raw.get("ai_configs") or {},
         team_policy=team_policy,
         policy_violations=inspector_violations,
+        dependency_graph=raw.get("dependency_graph")
     )
 
     snapshot = await _snapshot_svc.create_snapshot(session, snapshot_req)
@@ -96,6 +97,7 @@ async def scan_environment(
         scan_duration_seconds=snapshot.scan_duration_seconds,
         freshness_score=snapshot.freshness_score,
         policy_violations=[PolicyViolation(**v) for v in (snapshot.policy_violations or [])],
+        dependency_graph=snapshot.dependency_graph
     )
 
 

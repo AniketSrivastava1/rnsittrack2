@@ -20,21 +20,44 @@ class SBOMParser:
         try:
             data = json.loads(json_str)
             artifacts = data.get("artifacts", [])
+            relationships = data.get("relationships", [])
             
-            dependencies = []
+            # Map of artifact ID to our internal node format
+            id_to_node = {}
+            nodes = []
             for art in artifacts:
-                dep = {
+                node = {
+                    "id": art.get("id"),
                     "name": art.get("name"),
                     "version": art.get("version"),
                     "type": art.get("type"),
                     "location": self._get_primary_location(art)
                 }
-                dependencies.append(dep)
+                id_to_node[node["id"]] = node
+                nodes.append(node)
             
-            return dependencies
+            # Extract links
+            links = []
+            for rel in relationships:
+                # Syft uses source/target IDs
+                source = rel.get("source")
+                target = rel.get("target")
+                rel_type = rel.get("type")
+                
+                # We only care about dependency-like relationships
+                if source in id_to_node and target in id_to_node:
+                    links.append({"source": source, "target": target, "type": rel_type})
+            
+            return {
+                "dependencies": nodes,
+                "graph": {
+                    "nodes": nodes,
+                    "links": links
+                }
+            }
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse Syft JSON: {e}")
-            return []
+            return {"dependencies": [], "graph": {"nodes": [], "links": []}}
 
     def _get_primary_location(self, artifact: Dict[str, Any]) -> str:
         """Extracts the primary file location for an artifact."""

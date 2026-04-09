@@ -9,7 +9,7 @@ export interface FixRecommendation {
 }
 
 export class ArchitectClient {
-    constructor(private baseUrl: string) {}
+    constructor(public baseUrl: string) {}
 
     public async scan(projectPath: string, scope: string = 'full'): Promise<any> {
         return this.post('/api/v1/scan', { project_path: projectPath, scope });
@@ -17,6 +17,30 @@ export class ArchitectClient {
 
     public async getLatestSnapshot(projectPath: string): Promise<any> {
         return this.get(`/api/v1/snapshots/latest?project_path=${encodeURIComponent(projectPath)}`);
+    }
+
+    public async getVisualizationHtml(snapshotId: string): Promise<string> {
+        const url = new URL(`/api/v1/visualize/dependencies/${snapshotId}`, this.baseUrl);
+        return new Promise((resolve, reject) => {
+            const req = http.get(url, (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve(body));
+            });
+            req.on('error', (err) => reject(err));
+        });
+    }
+
+    public async getTeamVisualizationHtml(): Promise<string> {
+        const url = new URL(`/api/v1/visualize/team`, this.baseUrl);
+        return new Promise((resolve, reject) => {
+            const req = http.get(url, (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve(body));
+            });
+            req.on('error', (err) => reject(err));
+        });
     }
 
     public async getFixRecommendations(snapshotId: string, _policy: any): Promise<FixRecommendation[]> {

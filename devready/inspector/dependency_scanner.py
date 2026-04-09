@@ -37,15 +37,25 @@ class DependencyScanner:
     def _scan_with_syft(self, project_path: str) -> Dict[str, Any]:
         try:
             result = self.wrapper.execute(["syft", project_path, "-o", "json"], timeout_seconds=4.0)
-            dependencies = self.parser.parse(result.stdout)
-            return {"success": True, "dependencies": dependencies, "count": len(dependencies)}
+            if result.exit_code == 0:
+                parsed = self.parser.parse(result.stdout)
+                dependencies = parsed.get("dependencies", [])
+                graph = parsed.get("graph", {"nodes": [], "links": []})
+                return {"success": True, "dependencies": dependencies, "count": len(dependencies), "graph": graph}
+            return {"success": False, "dependencies": [], "error": result.stderr, "graph": {"nodes": [], "links": []}}
         except Exception as e:
-            logger.info("syft scan failed (%s), falling back to manifest parsing", e)
-            return self._scan_manifests(project_path)
+            return {"success": False, "dependencies": [], "error": str(e), "graph": {"nodes": [], "links": []}}
 
     def _scan_manifests(self, project_path: str) -> Dict[str, Any]:
         """Parse dependency manifests directly without syft."""
         dependencies: List[Dict[str, Any]] = []
+        nodes: List[Dict[str, Any]] = []
+        links: List[Dict[str, Any]] = []
+
+        # Root node
+        project_name = os.path.basename(project_path)
+        root_id = f"project:{project_name}"
+        nodes.append({"id": root_id, "name": project_name, "version": "0.1.0", "type": "project"})
 
         for lang, files in _MANIFEST_PARSERS.items():
             for filename in files:
@@ -54,12 +64,27 @@ class DependencyScanner:
                     continue
                 try:
                     deps = self._parse_manifest(filepath, lang)
-                    dependencies.extend(deps)
+                    for d in deps:
+                        dep_id = f"{lang}:{d['name']}"
+                        d["id"] = dep_id
+                        dependencies.append(d)
+                        nodes.append({
+                            "id": dep_id,
+                            "name": d["name"],
+                            "version": d["version"],
+                            "type": d["type"]
+                        })
+                        links.append({"source": root_id, "target": dep_id, "type": "dependsOn"})
                 except Exception as e:
                     logger.debug("Failed to parse %s: %s", filepath, e)
                 break  # only parse first matching file per lang
 
-        return {"success": True, "dependencies": dependencies, "count": len(dependencies)}
+        return {
+            "success": True, 
+            "dependencies": dependencies, 
+            "count": len(dependencies),
+            "graph": {"nodes": nodes, "links": links}
+        }
 
     def _parse_manifest(self, filepath: str, lang: str) -> List[Dict[str, Any]]:
         filename = os.path.basename(filepath)

@@ -52,13 +52,26 @@ class DaemonClient:
         return await self._request("GET", f"/api/v1/snapshots/{snapshot_id}")
     
     async def get_latest_snapshot(self, project_path: str) -> Optional[Dict[str, Any]]:
-        """Get the most recent snapshot for a project."""
-        try:
-            return await self._request("GET", "/api/v1/snapshots/latest", params={"project_path": project_path})
-        except DaemonResponseError as e:
-            if e.status_code == 404:
-                return None
-            raise
+        """Returns the most recent snapshot for a given project path."""
+        snapshots = await self._request("GET", "/api/v1/snapshots", params={"project_path": project_path, "limit": 1})
+        return snapshots[0] if snapshots else None
+
+    # --- Team API ---
+    async def get_team_summary(self) -> Dict[str, Any]:
+        """Returns the aggregate health of the team."""
+        return await self._request("GET", "/api/v1/team/summary")
+
+    async def get_team_drift_outliers(self) -> List[Dict[str, Any]]:
+        """Returns common drift items across the team."""
+        return await self._request("GET", "/api/v1/team/drift")
+
+    async def compare_with_member(self, member_id: str) -> Dict[str, Any]:
+        """Returns a drift report comparing the current user with a teammate."""
+        return await self._request("GET", f"/api/v1/team/compare/{member_id}")
+
+    async def sync_team_data(self) -> Dict[str, Any]:
+        """Triggers local data synchronization with the Team Hub."""
+        return await self._request("POST", "/api/v1/team/sync")
     
     async def list_snapshots(self, project_path: Optional[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
         """List snapshots with optional project filter."""

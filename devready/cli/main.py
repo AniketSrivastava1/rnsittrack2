@@ -298,36 +298,56 @@ app.add_typer(team_app, name="team")
 @team_app.command("status")
 @coro
 async def team_status(ctx: typer.Context):
-    """View violation trends and compliance summary from local analytics."""
+    """View violation trends and team compliance summary."""
     context = ctx.parent.obj
     try:
-        summary = await context.client._request("GET", "/api/v1/analytics/violations/summary")
-        violations = summary.get("violations", [])
-
+        # 1. Fetch data from both sources
+        analytics_summary = await context.client._request("GET", "/api/v1/analytics/violations/summary")
+        team_data = await context.client.get_team_summary()
+        
         if context.json_output:
             import json
-            print(json.dumps(summary))
+            print(json.dumps({"analytics": analytics_summary, "team": team_data}, indent=2))
             return
-
-        if not violations:
-            context.formatter.console.print("[green]No policy violations recorded.[/green]")
-            return
-
-        table = Table(title="Violation Trends (last 30 days)")
-        table.add_column("Type", style="yellow")
-        table.add_column("Tool/Var", style="cyan")
-        table.add_column("Count", style="red")
-        table.add_column("Last Seen", style="dim")
-
-        for v in violations:
-            table.add_row(
-                v.get("violation_type", ""),
-                v.get("tool_or_var_name", ""),
-                str(v.get("count", 0)),
-                str(v.get("last_seen", ""))[:19],
+        
+        # 2. Render Violation Trends (from original Main branch)
+        violations = analytics_summary.get("violations", [])
+        if violations:
+            table = Table(title="Violation Trends (last 30 days)")
+            table.add_column("Type", style="yellow")
+            table.add_column("Tool/Var", style="cyan")
+            table.add_column("Count", style="red")
+            table.add_column("Last Seen", style="dim")
+            for v in violations:
+                table.add_row(
+                    v.get("violation_type", ""),
+                    v.get("tool_or_var_name", ""),
+                    str(v.get("count", 0)),
+                    str(v.get("last_seen", ""))[:19],
+                )
+            context.formatter.console.print(table)
+            context.formatter.console.print("") # Spacer
+        
+        # 3. Render Team Status Grid (from Feature Branch)
+        team_table = Table(title=f"Team: {team_data['team_name']} (Avg: {team_data['aggregate_score']}%)")
+        team_table.add_column("Member", style="bold cyan")
+        team_table.add_column("Score", justify="right")
+        team_table.add_column("Status")
+        team_table.add_column("Last Sync", style="dim")
+        
+        for member in team_data.get("members", []):
+            score = member["score"]
+            color = "green" if score >= 90 else "yellow" if score >= 70 else "red"
+            status_style = "green" if member["status"] == "online" else "yellow" if member["status"] == "warning" else "red"
+            
+            team_table.add_row(
+                member["name"],
+                f"[{color}]{score}[/]",
+                f"[{status_style}]{member['status']}[/]",
+                member["last_scan"]
             )
-
-        context.formatter.console.print(table)
+        context.formatter.console.print(team_table)
+        
     except DaemonError as e:
         context.formatter.print_error(str(e))
 
@@ -337,6 +357,10 @@ async def team_sync(ctx: typer.Context):
     """Export current environment snapshot to ~/.devready/exports/ for team sharing."""
     context = ctx.parent.obj
     try:
+        if not context.quiet:
+            if not typer.confirm("This will export your environment snapshot for team sharing. Proceed?"):
+                return
+
         import json
         from pathlib import Path
 

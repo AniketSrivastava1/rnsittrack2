@@ -81,3 +81,29 @@ def test_fix_command(runner):
         assert result.exit_code == 0
         assert "Fixes applied successfully!" in result.stdout
         mock_client.apply_fixes.assert_called_once()
+
+def test_team_status_command(runner):
+    with patch("devready.cli.main.DaemonClient", autospec=True) as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client._request = AsyncMock(return_value={"violations": []})
+        mock_client.get_team_summary = AsyncMock(return_value={
+            "team_name": "Test Team",
+            "aggregate_score": 88,
+            "members": [
+                {"name": "Alice", "score": 95, "status": "online", "last_scan": "1m ago"}
+            ]
+        })
+        
+        result = runner.invoke(app, ["team", "status"])
+        assert result.exit_code == 0
+        assert "Alice" in result.stdout
+
+def test_team_sync_command(runner):
+    with patch("devready.cli.main.DaemonClient", autospec=True) as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client.scan = AsyncMock(return_value={"snapshot_id": "test-123", "tools": [], "health_score": 90, "dependencies": {}, "env_vars": {}, "policy_violations": [], "freshness_score": 100, "scan_duration_seconds": 1.0, "timestamp": "2026-01-01T00:00:00", "project_path": "/tmp", "project_name": "test"})
+        
+        # Use --quiet on the root command to bypass confirmation
+        result = runner.invoke(app, ["-q", "team", "sync"])
+        assert result.exit_code == 0
+        assert "exported" in result.stdout

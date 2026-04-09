@@ -34,6 +34,12 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
                 case 'scan':
                     await this.refresh();
                     break;
+                case 'visualize':
+                    this.openVisualization(data.snapshotId);
+                    break;
+                case 'visualizeTeam':
+                    this.openTeamDashboard();
+                    break;
             }
         });
 
@@ -68,6 +74,42 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
             } else {
                 vscode.window.showErrorMessage(`DevReady: Scan failed. ${msg}`);
             }
+        }
+    }
+
+    private async openVisualization(snapshotId: string) {
+        if (!snapshotId) return;
+
+        const panel = vscode.window.createWebviewPanel(
+            'devready.dependencyGraph',
+            'Dependency Graph',
+            vscode.ViewColumn.One,
+            { enableScripts: true }
+        );
+
+        try {
+            const html = await this._client.getVisualizationHtml(snapshotId);
+            panel.webview.html = html;
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to load dependency graph: ${error}`);
+            panel.dispose();
+        }
+    }
+
+    private async openTeamDashboard() {
+        const panel = vscode.window.createWebviewPanel(
+            'devready.teamDashboard',
+            'Team Dashboard',
+            vscode.ViewColumn.One,
+            { enableScripts: true }
+        );
+
+        try {
+            const html = await this._client.getTeamVisualizationHtml();
+            panel.webview.html = html;
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to load team dashboard: ${error}`);
+            panel.dispose();
         }
     }
 
@@ -286,6 +328,12 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
         <button id="scan-button" class="fix-button" style="margin-top: 24px; max-width: 250px; margin-inline: auto;">
             🔍 Scan Environment
         </button>
+        <button id="graph-button" class="fix-button" style="margin-top: 12px; max-width: 250px; margin-inline: auto; background: rgba(56, 189, 248, 0.2); color: #38bdf8; display: none;">
+            🕸️ View Dependency Graph
+        </button>
+        <button id="team-button" class="fix-button" style="margin-top: 12px; max-width: 250px; margin-inline: auto; background: rgba(129, 140, 248, 0.2); color: #818cf8;">
+            👥 View Team Dashboard
+        </button>
     </div>
     
     <div>
@@ -301,12 +349,26 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
         const scoreCircleEl = document.getElementById('score-circle');
         const listEl = document.getElementById('issues-list');
         const scanBtn = document.getElementById('scan-button');
+        const graphBtn = document.getElementById('graph-button');
+        const teamBtn = document.getElementById('team-button');
+
+        let currentSnapshotId = null;
 
         scanBtn.onclick = () => {
             listEl.innerHTML = '<div class="loading">Scanning environment...</div>';
             scanBtn.disabled = true;
             scanBtn.innerText = '⏳ Scanning...';
             vscode.postMessage({ type: 'scan' });
+        };
+
+        graphBtn.onclick = () => {
+            if (currentSnapshotId) {
+                vscode.postMessage({ type: 'visualize', snapshotId: currentSnapshotId });
+            }
+        };
+
+        teamBtn.onclick = () => {
+            vscode.postMessage({ type: 'visualizeTeam' });
         };
 
         function updateScoreVisuals(scoreStr) {
@@ -330,6 +392,13 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
                 
                 scoreEl.innerText = message.snapshot.health_score;
                 updateScoreVisuals(message.snapshot.health_score);
+                
+                currentSnapshotId = message.snapshot.snapshot_id;
+                if (currentSnapshotId) {
+                    graphBtn.style.display = 'flex';
+                } else {
+                    graphBtn.style.display = 'none';
+                }
                 
                 listEl.innerHTML = '';
                 

@@ -42,6 +42,7 @@ class SnapshotService:
             scan_duration_seconds=req.scan_duration_seconds,
             freshness_score=req.freshness_score,
             ai_configs=req.ai_configs,
+            dependency_graph=req.dependency_graph.model_dump() if req.dependency_graph else {},
         )
 
         # Generate violations from policy if provided, then merge with any caller-supplied ones
@@ -69,6 +70,7 @@ class SnapshotService:
             freshness_score=req.freshness_score,
             ai_configs=req.ai_configs,
             policy_violations=[v.model_dump() for v in violations],
+            dependency_graph=req.dependency_graph.model_dump() if req.dependency_graph else {},
         )
         return await insert_snapshot(session, snapshot)
 

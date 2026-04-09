@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevReady Dashboard Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* INLINED style.css */
+        :root {
+            --bg-deep: #000000;
+            --bg-surface: #0a0c10;
+            --bg-card: #121418;
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --accent-blue: #0066ff;
+            --accent-light: #3385ff;
+            --success: #10b981;
+            --warning: #ff4444;
+            --danger: #ff0000;
+            --border: #222d3d;
+            --glass: rgba(10, 12, 16, 0.8);
+            --font-main: 'Inter', sans-serif;
+            --font-heading: 'Outfit', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-deep);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #app {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 24px;
+            margin-bottom: 40px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-light));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-family: var(--font-heading);
+        }
+
+        .logo span {
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links {
+            list-style: none;
+            flex: 1;
+        }
+
+        .nav-links li {
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-links li:hover {
+            color: var(--text-primary);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-links li.active {
+            color: var(--accent-blue);
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left-color: var(--accent-blue);
+        }
+
+        .sidebar-footer {
+            padding: 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.online { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 24px 40px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 16px;
+            width: 400px;
+            gap: 10px;
+        }
+
+        .search-bar input {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            outline: none;
+            flex: 1;
+            font-size: 0.9rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            transition: transform 0.1s, opacity 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:active { transform: scale(0.98); }
+
+        .btn-primary {
+            background: linear-gradient(to right, var(--accent-blue), var(--accent-light));
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-surface);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+
+        .btn-icon {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .stat-card h3 {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .health-display {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .health-ring { width: 100px; height: 100px; }
+
+        .circular-chart {
+            display: block;
+            margin: 10px auto;
+            max-width: 80%;
+            max-height: 250px;
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: #2d3748;
+            stroke-width: 3.8;
+        }
+
+        .circle {
+            fill: none;
+            stroke-width: 2.8;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.5s ease;
+        }
+
+        .circle.green { stroke: var(--success); }
+        .circle.yellow { stroke: var(--warning); }
+        .circle.red { stroke: var(--danger); }
+
+        .percentage {
+            fill: var(--text-primary);
+            font-family: var(--font-heading);
+            font-size: 0.55em;
+            font-weight: 700;
+            text-anchor: middle;
+        }
+
+        .status-tag {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            width: fit-content;
+        }
+
+        .status-ok { background-color: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .status-warn { background-color: rgba(255, 68, 68, 0.2); color: var(--warning); }
+        .status-error { background-color: rgba(255, 0, 0, 0.2); color: var(--danger); }
+
+        .scan-progress-container { display: flex; flex-direction: column; gap: 12px; }
+        .progress-info { display: flex; justify-content: space-between; font-size: 0.9rem; }
+        .progress-bar-bg { height: 8px; background-color: var(--bg-deep); border-radius: 4px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(to right, var(--accent-blue), var(--accent-light)); transition: width 0.3s ease; }
+        
+        .card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .table-header { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 16px 24px; background-color: rgba(255, 255, 255, 0.02); color: var(--text-secondary); font-size: 0.85rem; }
+        td { padding: 16px 24px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        .tool-name { font-weight: 600; color: var(--text-primary); }
+        .version-tag { background-color: var(--bg-deep); padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .glass { background: var(--glass); backdrop-filter: blur(12px); }
+        .modal-header { padding: 24px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); }
+        .modal-body { padding: 24px; overflow-y: auto; }
+        .modal-footer { padding: 20px 24px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); }
+
+        #notification-area {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <nav class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">DR</div>
+                <span>DevReady</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-tab="my-env">My Environment</li>
+                <li data-tab="team-env">Team Visibility</li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="status-indicator online"></div>
+                <span>Daemon Connected (Preview Mode)</span>
+            </div>
+        </nav>
+
+        <main class="content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <input type="text" placeholder="Search tools or members...">
+                </div>
+                <div class="actions">
+                    <button id="btn-refresh" class="btn-secondary">Refresh</button>
+                    <button id="btn-scan" class="btn-primary">Run Scan</button>
+                </div>
+            </header>
+
+            <div id="tab-content">
+                <section id="my-env" class="tab-pane active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Environment Health</h3>
+                            <div class="health-display">
+                                <div class="health-ring">
+                                    <svg viewBox="0 0 36 36" class="circular-chart">
+                                        <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <path id="health-progress" class="circle green" stroke-dasharray="92, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <text x="18" y="20.35" class="percentage" id="health-score-text">92%</text>
+                                    </svg>
+                                </div>
+                                <div class="health-info">
+                                    <p id="health-status-desc">System healthy and aligned.</p>
+                                    <span class="status-tag status-ok">Healthy</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Active Scanning</h3>
+                            <div class="scan-progress-container">
+                                <div class="progress-info">
+                                    <span id="scan-status-text">Idle</span>
+                                    <span id="scan-percent">0%</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div id="scan-progress-inner" class="progress-bar-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-container card">
+                        <div class="table-header"><h2>Detected Tools</h2></div>
+                        <table id="tools-table">
+                            <thead>
+                                <tr><th>Tool</th><th>Version</th><th>Manager</th><th>Path</th><th>Status</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="team-env" class="tab-pane">
+                    <div class="table-container card">
+                        <div class="table-header"><h2>Team Health Status</h2></div>
+                        <table id="team-table">
+                            <thead>
+                                <tr><th>Team Member</th><th>Health</th><th>Divergence</th><th>Activity</th><th>Last Sync</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <div id="comparison-modal" class="modal-overlay">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2 id="modal-title">Comparison</h2>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <table id="comparison-table" class="mini-table">
+                        <thead><tr><th>Tool</th><th>My Version</th><th>Their Version</th><th>Status</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer"><button class="btn-secondary close-modal">Close</button></div>
+            </div>
+        </div>
+
+        <div id="notification-area"></div>
+    </div>
+
+    <script>
+        /* INLINED Logic (Mocked) */
+        const mockSnapshot = {
+            health_score: 92,
+            tools: [
+                { name: "python", version: "3.11.5", path: "/usr/bin/python3", manager: "system", status: "ok" },
+                { name: "node", version: "20.5.1", path: "/usr/local/bin/node", manager: "nvm", status: "ok" },
+                { name: "docker", version: "24.0.6", path: "/usr/bin/docker", manager: "system", status: "ok" },
+                { name: "postgresql", version: "15.4", path: "/opt/homebrew/bin/psql", manager: "brew", status: "warning" },
+            ]
+        };
+
+        const mockTeamSummary = {
+            members: [
+                { name: "Alice", score: 95, status: "Active", last_scan: "2 mins ago" },
+                { name: "Bob", score: 82, status: "Away", last_scan: "15 mins ago" },
+                { name: "Charlie", score: 68, status: "Active", last_scan: "5 mins ago" },
+            ]
+        };
+
+        const mockDriftReport = {
+            drift_score: 12,
+            version_changes: [{ tool_name: "node", old_version: "20.5.1", new_version: "18.17.0" }],
+            added_tools: [{ name: "redis", version: "7.2.1" }],
+        };
+
+        class App {
+            constructor() {
+                this.setupEventListeners();
+                this.refreshAll();
+            }
+
+            setupEventListeners() {
+                document.querySelectorAll('.nav-links li').forEach(li => {
+                    li.addEventListener('click', () => {
+                        this.switchTab(li.getAttribute('data-tab'));
+                    });
+                });
+
+                document.getElementById('btn-refresh').addEventListener('click', () => this.refreshAll());
+                document.getElementById('btn-scan').addEventListener('click', () => this.runScan());
+                document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', () => this.closeModal()));
+            }
+
+            refreshAll() {
+                this.renderMyEnv(mockSnapshot);
+                this.renderTeamEnv(mockTeamSummary);
+            }
+
+            switchTab(tabId) {
+                document.querySelectorAll('.nav-links li').forEach(li => li.classList.toggle('active', li.getAttribute('data-tab') === tabId));
+                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.toggle('active', pane.id === tabId));
+            }
+
+            renderMyEnv(snapshot) {
+                const ring = document.getElementById('health-progress');
+                const text = document.getElementById('health-score-text');
+                const score = snapshot.health_score;
+                ring.setAttribute('stroke-dasharray', `${score}, 100`);
+                text.textContent = `${score}%`;
+
+                const tbody = document.querySelector('#tools-table tbody');
+                tbody.innerHTML = snapshot.tools.map(tool => `
+                    <tr>
+                        <td><span class="tool-name">${tool.name}</span></td>
+                        <td><span class="version-tag">${tool.version}</span></td>
+                        <td>${tool.manager}</td>
+                        <td style="color:var(--text-secondary)">${tool.path}</td>
+                        <td><span class="status-tag status-${tool.status === 'ok' ? 'ok' : 'warn'}">${tool.status}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            renderTeamEnv(summary) {
+                const tbody = document.querySelector('#team-table tbody');
+                tbody.innerHTML = summary.members.map(member => `
+                    <tr>
+                        <td>${member.name}</td>
+                        <td style="font-weight:600; color:${member.score >= 90 ? 'var(--success)' : 'var(--warning)'}">${member.score}%</td>
+                        <td>${100-member.score}% Drift</td>
+                        <td><span class="status-tag ${member.status === 'Active' ? 'status-ok' : 'status-warn'}">${member.status}</span></td>
+                        <td style="color:var(--text-secondary)">${member.last_scan}</td>
+                        <td><button class="btn-secondary" onclick="app.showComparison('${member.name}')">Compare</button></td>
+                    </tr>
+                `).join('');
+            }
+
+            showComparison(name) {
+                const tbody = document.querySelector('#comparison-table tbody');
+                let html = mockDriftReport.version_changes.map(c => `
+                    <tr><td>${c.tool_name}</td><td>${c.old_version}</td><td>${c.new_version}</td><td><span class="status-tag status-warn">Divergent</span></td></tr>
+                `).join('');
+                html += mockDriftReport.added_tools.map(t => `
+                    <tr><td>${t.name}</td><td>Missing</td><td>${t.version}</td><td><span class="status-tag status-error">[+] Added</span></td></tr>
+                `).join('');
+                tbody.innerHTML = html;
+                document.getElementById('comparison-modal').style.display = 'flex';
+            }
+
+            closeModal() { document.getElementById('comparison-modal').style.display = 'none'; }
+
+            runScan() {
+                const bar = document.getElementById('scan-progress-inner');
+                const text = document.getElementById('scan-percent');
+                const label = document.getElementById('scan-status-text');
+                let p = 0;
+                label.textContent = 'Scanning...';
+                const int = setInterval(() => {
+                    p += 10;
+                    bar.style.width = p + '%';
+                    text.textContent = p + '%';
+                    if (p >= 100) {
+                        clearInterval(int);
+                        label.textContent = 'Complete';
+                        setTimeout(() => { bar.style.width = '0%'; text.textContent = '0%'; label.textContent = 'Idle'; }, 1000);
+                    }
+                }, 100);
+            }
+        }
+
+        const app = new App();
+    </script>
+</body>
+</html>
