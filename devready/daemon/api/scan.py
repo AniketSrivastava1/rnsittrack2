@@ -35,9 +35,9 @@ async def scan_environment(
 
     await ws_manager.broadcast(project_path, {"event": "scan_started", "scope": req.scope})
 
-    # Run ScanOrchestrator in a thread (it uses ThreadPoolExecutor internally)
+    # Always force refresh on explicit scan — never serve stale cached graph data
     loop = asyncio.get_event_loop()
-    raw = await loop.run_in_executor(None, _run_orchestrator, project_path, req.scope, req.force_refresh)
+    raw = await loop.run_in_executor(None, _run_orchestrator, project_path, req.scope, True)
 
     await ws_manager.broadcast(project_path, {"event": "scan_complete", "success": raw.get("success", True)})
 
