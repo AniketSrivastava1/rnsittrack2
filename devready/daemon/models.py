@@ -50,6 +50,7 @@ class TeamPolicy(BaseModel):
     forbidden_tools: List[str] = Field(default_factory=list)
     version_constraints: Dict[str, str] = Field(default_factory=dict)
     env_var_requirements: List[EnvVarRequirement] = Field(default_factory=list)
+    ai_instructions_must_contain: List[str] = Field(default_factory=list)
 
 
 class DriftReport(BaseModel):
@@ -60,10 +61,11 @@ class DriftReport(BaseModel):
     removed_tools: List[ToolVersion] = Field(default_factory=list)
     version_changes: List[VersionChange] = Field(default_factory=list)
     drift_score: int = Field(ge=0, le=100)
+    ai_config_changed: bool = False
 
 
 class PolicyViolation(BaseModel):
-    violation_type: Literal["missing_tool", "version_mismatch", "forbidden_tool", "missing_env_var"]
+    violation_type: Literal["missing_tool", "version_mismatch", "forbidden_tool", "missing_env_var", "ai_config_drift"]
     tool_or_var_name: str
     expected: Optional[str] = None
     actual: Optional[str] = None

@@ -1,0 +1,3 @@
+ai_instructions_must_contain:
+  - "ALWAYS use type hints"
+  - "NEVER use eval"

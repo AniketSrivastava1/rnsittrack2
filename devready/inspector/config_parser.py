@@ -14,7 +14,8 @@ class ConfigParser:
         ".cursorrules",
         ".copilot",
         "AGENTS.md",
-        ".aider.conf.yml"
+        ".aider.conf.yml",
+        ".github/copilot-instructions.md"
     ]
 
     def find_configs(self, project_root: str) -> List[Dict[str, Any]]:
@@ -45,13 +46,13 @@ class ConfigParser:
         filename = file_path.name
         content = file_path.read_text(encoding="utf-8", errors="ignore")
 
-        if filename == "CLAUDE.md":
+        if filename == "CLAUDE.md" or filename == "copilot-instructions.md":
             return self._parse_markdown(content)
         elif filename == ".cursorrules":
             return self._parse_json_or_yaml(content)
         elif filename.endswith(".yml") or filename.endswith(".yaml"):
             return self._parse_yaml(content)
-        elif filename == ".copilot" or filename == "AGENTS.md":
+        elif filename == ".copilot" or filename == "AGENTS.md" or filename == "rules.copilot":
             # Simple text parsing for now
             return {"raw_text": content}
         

@@ -24,6 +24,7 @@ class ScanRequest(BaseModel):
     project_path: Optional[str] = None
     scope: str = "full"
     force_refresh: bool = False
+    team_policy: Optional[dict] = None
 
 
 @router.post("/scan")
@@ -60,8 +61,15 @@ async def scan_environment(
     perf = raw.get("performance", {})
     scan_duration = perf.get("total_seconds") or perf.get("total_duration_ms", 0.0) / 1000.0
 
-    # Load policy: prefer .devready.yml, fall back to .devready-policy.yaml
-    team_policy = _load_devready_yml(project_path) or _load_project_policy(project_path)
+    # Load policy: prefer CLI-supplied policy, then fall back to file-based policy
+    team_policy = _deserialize_team_policy(req.team_policy) if req.team_policy else None
+    if not team_policy:
+        team_policy = _load_devready_yml(project_path) or _load_project_policy(project_path)
+
+    # Parse AI agent configs from the scanned project
+    ai_configs = raw.get("ai_configs") or {}
+    if not ai_configs:
+        ai_configs = _parse_ai_configs(project_path)
 
     # Merge inspector-level violations (from PolicyChecker) into the request
     inspector_violations = _convert_inspector_violations(raw.get("policy_violations_inspector", []))
@@ -74,7 +82,7 @@ async def scan_environment(
         env_vars=env_vars,
         scan_duration_seconds=scan_duration,
         freshness_score=raw.get("freshness_score", 100.0),
-        ai_configs=raw.get("ai_configs") or {},
+        ai_configs=ai_configs,
         team_policy=team_policy,
         policy_violations=inspector_violations,
     )
@@ -154,6 +162,36 @@ def _load_project_policy(project_path: str):
         import logging
         logging.getLogger(__name__).warning("Failed to load policy file: %s", e)
         return None
+
+
+def _deserialize_team_policy(data: dict):
+    """Convert a raw dict (from CLI-supplied team_policy) into a TeamPolicy model."""
+    from devready.daemon.models import TeamPolicy, ToolRequirement, EnvVarRequirement
+    if not data:
+        return None
+    try:
+        return TeamPolicy(
+            required_tools=[ToolRequirement(**t) for t in data.get("required_tools", [])],
+            forbidden_tools=data.get("forbidden_tools", []),
+            env_var_requirements=[EnvVarRequirement(**e) for e in data.get("env_var_requirements", [])],
+            ai_instructions_must_contain=data.get("ai_instructions_must_contain", []),
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to deserialize team policy: %s", e)
+        return None
+
+
+def _parse_ai_configs(project_path: str) -> dict:
+    """Parse AI agent config files (CLAUDE.md, .cursorrules, Copilot, etc.) from the project."""
+    try:
+        from devready.inspector.ai_parser import AIParser
+        parser = AIParser()
+        return parser.parse_project_configs(project_path)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to parse AI configs: %s", e)
+        return {}
 
 
 _SCOPE_MAP = {

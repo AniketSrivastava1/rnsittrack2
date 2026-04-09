@@ -38,15 +38,17 @@ class RichFormatter:
     
     def print_health_score(self, score: int):
         """Display health score panel with dynamic color."""
+        # ASCII safe on windows
+        is_win = os.name == "nt"
         if score >= 90:
             color = "health.high"
-            emoji = "✅"
+            emoji = "[PASS]" if is_win else "✅"
         elif score >= 70:
             color = "health.medium"
-            emoji = "⚠️"
+            emoji = "[WARN]" if is_win else "⚠️"
         else:
             color = "health.low"
-            emoji = "❌"
+            emoji = "[FAIL]" if is_win else "❌"
         
         self.console.print(
             Panel(
@@ -146,6 +148,35 @@ class RichFormatter:
         drift_score = drift.get("drift_score", 0)
         self.console.print(f"Drift Score: [bold]{drift_score}/100[/bold]\n")
 
+    def print_violations(self, policy_violations: List[Dict[str, Any]]):
+        """Display policy violations in a formatted list."""
+        if not policy_violations:
+            return
+
+        self.console.print("[bold]+-------------------+[/bold]")
+        self.console.print("[bold]| Policy Violations |[/bold]")
+        self.console.print("[bold]+-------------------+[/bold]")
+        
+        is_win = os.name == "nt"
+        
+        for v in policy_violations:
+            severity = v.get("severity", "error")
+            color = "red" if severity == "error" else "yellow"
+            
+            icon = "[X]" if is_win else "❌"
+            if severity == "warning":
+                icon = "[!]" if is_win else "⚠️"
+            
+            name = v.get("tool_or_var_name", "Unknown")
+            msg = v.get("message", "")
+            
+            self.console.print(f"[{color}]{icon} {name}: {msg}[/{color}]")
+            
+            expected = v.get("expected")
+            actual = v.get("actual")
+            if expected or actual:
+                self.console.print(f"    Expected: {expected} | Actual: {actual}")
+
     def print_fix_recommendations(self, fixes: List[Dict[str, Any]]):
         """Display fix recommendations with actionable steps."""
         if not fixes:
@@ -184,7 +215,9 @@ class RichFormatter:
     
     def print_error(self, message: str, details: Optional[str] = None):
         """Print a formatted error message."""
-        self.console.print(f"\n[bold red]✗ Error:[/bold red] {message}")
+        is_win = os.name == "nt"
+        icon = "[X]" if is_win else "❌"
+        self.console.print(f"\n[bold red]{icon} Error:[/bold red] {message}")
         if details:
             self.console.print(f"[dim]{details}[/dim]")
         self.console.print()

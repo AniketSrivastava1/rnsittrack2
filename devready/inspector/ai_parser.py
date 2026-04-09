@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Any, Optional
 from devready.inspector.config_parser import ConfigParser
 
@@ -29,8 +30,9 @@ class AIParser:
         precedence = {
             ".aider.conf.yml": 1,
             "AGENTS.md": 2,
-            "CLAUDE.md": 3,
-            ".cursorrules": 4
+            "copilot-instructions.md": 3,
+            "CLAUDE.md": 4,
+            ".cursorrules": 5
         }
         
         sorted_configs = sorted(
@@ -40,26 +42,37 @@ class AIParser:
 
         for config in sorted_configs:
             filename = config["filename"]
+            basename = os.path.basename(filename)
             content = config["content"]
             merged_config["files_found"].append(filename)
             
-            if filename == "CLAUDE.md":
+            if basename in ("CLAUDE.md", "copilot-instructions.md"):
                 self._merge_claude_md(merged_config, content)
-            elif filename == ".cursorrules":
+            elif basename == ".cursorrules":
                 self._merge_cursorrules(merged_config, content)
+            elif basename in (".copilot", "AGENTS.md"):
+                if isinstance(content, dict) and "raw_text" in content:
+                    merged_config["instructions"] += "\n" + content["raw_text"]
             # Add more as needed
             
         return merged_config
 
     def _merge_claude_md(self, base: Dict[str, Any], content: Dict[str, Any]):
-        """Merges instructions from CLAUDE.md."""
-        # CLAUDE.md is typically markdown sections
+        """Merges instructions from CLAUDE.md / copilot-instructions.md."""
         if isinstance(content, dict):
-            # Prioritize 'instructions' or 'rules' sections
-            instr = content.get("instructions", "") or content.get("rules", "") or content.get("guidelines", "")
+            # Try named sections first
+            instr = (
+                content.get("instructions", "")
+                or content.get("rules", "")
+                or content.get("guidelines", "")
+                or content.get("copilot instructions", "")
+            )
+            # Fall back to combining all section text (including 'general')
+            if not instr:
+                instr = "\n".join(str(v) for v in content.values() if v)
             if instr:
                 base["instructions"] += "\n" + str(instr)
-            
+
             # Look for tech stack or dependencies
             stack = content.get("stack", "") or content.get("technology", "")
             if stack:

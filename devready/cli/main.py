@@ -5,6 +5,7 @@ import sys
 import logging
 from typing import Optional, List
 from functools import wraps
+from pathlib import Path
 
 from rich.table import Table
 
@@ -74,7 +75,22 @@ async def scan(
     with context.formatter.show_progress(f"Scanning {scope}...") as progress:
         progress.add_task(description=f"Scanning {scope}...", total=None)
         try:
-            result = await context.client.scan(project_path=project or os.getcwd(), scope=scope)
+            # Try to load team policy
+            team_policy_path = Path(project or os.getcwd()) / ".devready-team.yaml"
+            team_policy = None
+            if team_policy_path.exists():
+                import yaml
+                try:
+                    with open(team_policy_path, "r", encoding="utf-8") as f:
+                        team_policy = yaml.safe_load(f)
+                except Exception:
+                    pass
+
+            result = await context.client.scan(
+                project_path=project or os.getcwd(), 
+                scope=scope,
+                team_policy=team_policy
+            )
             
             if context.json_output:
                 import json
@@ -82,6 +98,9 @@ async def scan(
                 return
 
             context.formatter.print_health_score(result.get("health_score", 0))
+            
+            # Display policy violations if any
+            context.formatter.print_violations(result.get("policy_violations", []))
             
             # Display tools found
             tools = result.get("tools", [])

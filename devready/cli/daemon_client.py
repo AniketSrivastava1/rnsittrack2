@@ -40,11 +40,13 @@ class DaemonClient:
         
         raise DaemonError("Failed to communicate with daemon after retries")
 
-    async def scan(self, project_path: Optional[str] = None, scope: str = "full") -> Dict[str, Any]:
+    async def scan(self, project_path: Optional[str] = None, scope: str = "full", team_policy: Optional[Dict] = None) -> Dict[str, Any]:
         """Request a scan from the daemon."""
         payload = {"scope": scope}
         if project_path:
             payload["project_path"] = project_path
+        if team_policy:
+            payload["team_policy"] = team_policy
         return await self._request("POST", "/api/v1/scan", json=payload)
     
     async def get_snapshot(self, snapshot_id: str) -> Dict[str, Any]:

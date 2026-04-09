@@ -57,6 +57,12 @@ class DriftDetectionService:
                 ))
 
         drift_score = self._weighted_drift_score(added, removed, changes)
+        
+        # Check AI Config drift
+        ai_config_changed = False
+        if snap_a.ai_configs != snap_b.ai_configs:
+            ai_config_changed = True
+            drift_score = min(100, drift_score + 10)  # Minor penalty for AI drift
 
         return DriftReport(
             snapshot_a_id=snap_a.id or "",
@@ -65,6 +71,7 @@ class DriftDetectionService:
             removed_tools=removed,
             version_changes=changes,
             drift_score=drift_score,
+            ai_config_changed=ai_config_changed,
         )
 
     def _weighted_drift_score(self, added: list, removed: list, changes: List[VersionChange]) -> int:
@@ -137,6 +144,17 @@ class DriftDetectionService:
                     tool_or_var_name=req.name,
                     severity="warning",
                     message=f"Required environment variable '{req.name}' is not set",
+                ))
+
+        # Check AI Configs Drift
+        instructions = str(snapshot.ai_configs.get("instructions", "")).lower()
+        for required_text in policy.ai_instructions_must_contain:
+            if required_text.lower() not in instructions:
+                violations.append(PolicyViolation(
+                    violation_type="ai_config_drift",
+                    tool_or_var_name=f"AI Config: {required_text}",
+                    severity="warning",
+                    message=f"AI agent config is missing required rule: '{required_text}'",
                 ))
 
         return violations
