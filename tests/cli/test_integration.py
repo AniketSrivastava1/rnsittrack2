@@ -70,14 +70,16 @@ def test_fix_command(runner):
         ])
         mock_client.apply_fixes = AsyncMock(return_value={"results": [{"fix_id": "fix-1", "success": True, "message": "done"}]})
 
-        # Test list fixes without auto-approve — answer 'n' to the prompt
-        result = runner.invoke(app, ["fix"], input='n\n')
+        # Test dry run
+        result = runner.invoke(app, ["fix", "--dry-run"])
         assert result.exit_code == 0
         assert "Test Fix" in result.stdout
+        mock_client.apply_fixes.assert_not_called()
 
         # Test apply with auto-approve
         result = runner.invoke(app, ["fix", "-y"])
         assert result.exit_code == 0
+        assert "Fixes applied successfully!" in result.stdout
         mock_client.apply_fixes.assert_called_once()
 
 def test_team_status_command(runner):
