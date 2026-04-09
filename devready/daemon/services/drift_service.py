@@ -146,7 +146,8 @@ class DriftDetectionService:
                     message=f"Required environment variable '{req.name}' is not set",
                 ))
 
-        # Check AI Configs Drift
+        # ── AI Config Drift ──────────────────────────────────────────────────
+        # 1. Policy-driven: required rule strings must appear in any AI config
         instructions = str(snapshot.ai_configs.get("instructions", "")).lower()
         for required_text in policy.ai_instructions_must_contain:
             if required_text.lower() not in instructions:
@@ -156,5 +157,21 @@ class DriftDetectionService:
                     severity="warning",
                     message=f"AI agent config is missing required rule: '{required_text}'",
                 ))
+
+        # 2. Central-file drift: compare agent configs against CLAUDE.md / AGENTS.md
+        project_path = getattr(snapshot, "project_path", None)
+        if project_path:
+            try:
+                from devready.inspector.ai_parser import AIParser
+                drift_items = AIParser().get_central_drift(project_path)
+                for item in drift_items:
+                    violations.append(PolicyViolation(
+                        violation_type="ai_config_drift",
+                        tool_or_var_name=item["agent_file"],
+                        severity="warning",
+                        message=item["message"],
+                    ))
+            except Exception:
+                pass
 
         return violations

@@ -21,7 +21,13 @@ from devready.daemon.models import (
 router = APIRouter(prefix="/api/v1", tags=["fixes"])
 
 _pending_fixes: dict[str, FixRecommendation] = {}
-_TIME_ESTIMATES = {"missing_tool": 30, "version_mismatch": 20, "missing_env_var": 25, "forbidden_tool": 10}
+_TIME_ESTIMATES = {
+    "missing_tool": 30,
+    "version_mismatch": 20,
+    "missing_env_var": 25,
+    "forbidden_tool": 10,
+    "ai_config_drift": 5,
+}
 
 
 def _violation_to_fix(v: PolicyViolation, project_path: str = "") -> FixRecommendation:
@@ -34,6 +40,33 @@ def _violation_to_fix(v: PolicyViolation, project_path: str = "") -> FixRecommen
     }
 
     raw_cmd = None
+    manual_steps = None
+
+    # AI config drift – actionable recommendation to sync the file
+    if v.violation_type == "ai_config_drift":
+        name = v.tool_or_var_name
+        # Check if it's a named agent file (e.g. copilot-instructions.md)
+        target_files = [".cursorrules", ".github/copilot-instructions.md", "CLAUDE.md", "AGENTS.md"]
+        if any(f in name for f in target_files):
+            target = name
+            manual_steps = f"Open '{target}' and add the rule(s) listed in your central CLAUDE.md or AGENTS.md."
+        else:
+            # Missing required string from policy
+            missing_rule = name.replace("AI Config: ", "", 1)
+            manual_steps = (
+                f"Add the rule '{missing_rule}' to your AI agent config file "
+                f"(.cursorrules, .github/copilot-instructions.md, CLAUDE.md, etc.)."
+            )
+        return FixRecommendation(
+            fix_id=str(uuid.uuid4()),
+            issue_description=v.message,
+            command=None,
+            manual_steps=manual_steps,
+            confidence="high",
+            estimated_minutes=_TIME_ESTIMATES["ai_config_drift"],
+            affects_global=False,
+            violation=v,
+        )
 
     # Only use PackageManagerRegistry for non-system-tool package violations
     if v.tool_or_var_name.lower() not in _SYSTEM_TOOLS and v.violation_type in ("missing_tool", "version_mismatch"):
