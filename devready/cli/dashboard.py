@@ -14,6 +14,15 @@ from .daemon_client import DaemonClient, DaemonError
 from devready.lens.widgets import HealthTrendWidget, TopIssuesWidget, TimeSavedWidget, ComplianceWidget
 
 
+class HealthWidget(Static):
+    """Displays the current health score."""
+    score: reactive[int] = reactive(0)
+
+    def render(self) -> str:
+        icon = "✅" if self.score >= 80 else "⚠️" if self.score >= 50 else "❌"
+        return f"{icon} Health Score: {self.score}/100"
+
+
 class ComparisonModal(ModalScreen):
     """Modal screen to display environment comparison between current user and a teammate."""
     
@@ -182,6 +191,10 @@ class DevReadyDashboard(App):
     def update_ui(self, snapshot: Dict[str, Any]):
         """Update dashboard widgets with snapshot data."""
         self.health_score = snapshot.get("health_score", 0)
+        try:
+            self.query_one("#health-score", HealthWidget).score = self.health_score
+        except Exception:
+            pass
         table = self.query_one("#tools-table", DataTable)
         table.clear()
         for tool in snapshot.get("tools", []):
