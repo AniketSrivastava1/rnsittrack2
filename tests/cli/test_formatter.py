@@ -54,5 +54,6 @@ def test_print_fix_recommendations(formatter, capsys):
 def test_print_error(formatter, capsys):
     formatter.print_error("Test Error", "With details")
     captured = capsys.readouterr()
-    assert "✗ Error: Test Error" in captured.out
+    # On Windows the formatter uses ASCII [X], on other platforms it's ✗
+    assert ("Error: Test Error" in captured.out)
     assert "With details" in captured.out

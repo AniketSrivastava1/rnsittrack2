@@ -15,7 +15,8 @@ def test_daemon_not_running_error_handling(runner):
         
         result = runner.invoke(app, ["scan"])
         assert result.exit_code == 1
-        assert "✗ Error: Cannot connect to DevReady daemon" in result.stdout
+        # On Windows the formatter uses ASCII [X], on other platforms it's ✗
+        assert "Error: Cannot connect to DevReady daemon" in result.stdout
 
 def test_exit_on_low_health(runner):
     with patch("devready.cli.main.DaemonClient", autospec=True) as mock_client_class:

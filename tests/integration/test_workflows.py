@@ -23,10 +23,12 @@ async def test_full_snapshot_workflow(test_client):
     # Retrieve
     resp = await test_client.get(f"/api/v1/snapshots/{snap_id}")
     assert resp.status_code == 200
-    assert resp.json()["project_name"] == "integration-test"
+    snap_data = resp.json()
+    assert snap_data["project_name"] == "integration-test"
+    stored_path = snap_data["project_path"]  # may be normalized on Windows
 
-    # List
-    resp = await test_client.get("/api/v1/snapshots?project_path=/integration/test")
+    # List — use the actual stored path to handle OS-specific normalization
+    resp = await test_client.get(f"/api/v1/snapshots?project_path={stored_path}")
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
 
